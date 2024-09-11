@@ -1,1 +1,1 @@
-# Gedit - Primitive Model Creator 
+# GEdit - Primitive Model Creator 
