@@ -1,0 +1,2923 @@
+
+#include "control.h"
+Point2D<float> StackPanel::dummy;
+template<typename T>
+std::map<Component*, T*> UIManage<T>::ActiveUIs;
+template<typename T>
+std::vector<T*> UIManage<T>::InactiveUIs;
+
+// ********************************************** CONTROL *******************************************************
+bool Control::PickAt(float x, float y) {
+    return Framebuf::PickAt(x, y);
+}
+PixelInfo Control::PickFunc(float xNew, float yNew) {
+    return Framebuf::PickFunc(xNew, yNew);
+}
+void Control::Delete() {
+    //GetParent??->RemoveChild(ThisGUID);
+    rmtd::RemoveElement(GUID);
+}
+void Control::Update(float dt) {
+}
+void Control::InformChange(InformCB callback) {
+    DrawObj2D* next = (DrawObj2D*)Parent;
+    if (next && callback(next)) {
+        next->InformChange(callback);
+    }
+}
+void Control::ProcessInput(float dt, InputArgs_S& input) {
+    Framebuf::ProcessInput(dt, input);
+}
+void Control::SetPickFb() {
+    Framebuf::SetPickFb();
+}
+void Control::Prepare() {
+    Framebuf::Prepare();
+    //e_PreRend.QInvoke();
+}
+void Control::Render() {
+    return Framebuf::Render();
+}
+uint Control::RenderB(const Bounds& bn) {
+    return Framebuf::RenderB(bn);
+}
+// ********************************************** TEXTBASE *******************************************************
+void TextBase::OnTextChange() {
+    auto args = new TextChangeEventArgs();
+    args->text_change = m_text;
+    args->text_value = m_text;
+    e_TextChange.Invoke(args); // ovo resi ?
+}
+void TextBase::AddChar(const int& index, const uchar& chr) {
+    m_text.insert(m_text.begin() + index, chr);
+    TextData.ToRender = true;
+    OnTextChange();
+}
+void TextBase::RemoveChar(const int& index) {
+    m_text.erase(index, 1);
+    TextData.ToRender = true;
+    OnTextChange();
+}
+void TextBase::RenderText() {
+    TextData.ToRender = false;
+    if (Characters.size() == 0) return;
+
+    float scale = m_scalePar;
+    auto& dbCol = Characters;
+    auto& sourceCol = m_text;
+    float ud_margin = m_ud_margin * scale;
+    float lr_margin = m_lr_margin * scale;
+    float x = lr_margin;
+    float y = ud_margin;
+    float rowHeight = dbCol['H']->Bearing.Y * scale + ud_margin;
+    ClearChilds();
+    TextData.Clear();
+    float Start = lr_margin;
+    float End = AutoNewLine ? (ActualSize.X - 6 * scale - lr_margin) : FLT_MAX;
+
+    for (auto c = sourceCol.begin(); c != sourceCol.end(); c++) {
+        CharFramebuf* ch = dbCol[(uchar)*c];
+        TextData.Add({ x,y }, ch);
+        x += (ch->Advance.X >> 6) * scale;
+        if (x > End || ch->chr == '\n') {
+            x = Start;
+            y += rowHeight;
+            TextData.NextRow();
+        }
+    }
+    TextData.Offs_v.push_back({ x,y }); // !care mismatch;
+    TextData.Offs_end = { x,y };
+
+    auto& col = TextData.Chars_v;
+    auto& tex = Texs[activeTex];
+    BeginRender();
+    for (int i = 0; i < col.size(); ++i) {
+        auto& pt = TextData.Offs_v[i];
+        x = pt.X;
+        y = pt.Y;
+        auto ch = col[i];
+
+        float xpos = x + ch->Bearing.X * scale;
+        float ypos = y + (dbCol['H']->Bearing.Y - ch->Bearing.Y) * scale;
+        float w = ch->ActualSize.X * scale;
+        float h = ch->ActualSize.Y * scale;
+
+        float x1, x2, y1, y2;
+        x1 = xpos / tex->Size.X;
+        x2 = (xpos + w) / tex->Size.X;
+        y1 = ypos / tex->Size.Y;
+        y2 = (ypos + h) / tex->Size.Y;
+        utl::m01To11(x1);utl::m01To11(x2);utl::m01To11(y1);utl::m01To11(y2);
+        ch->color = m_colorPar;
+
+        Bounds bnd{ x1, y1, x2, y2 };
+        TextData.Bounds_v.push_back(bnd);
+        if (ch->chr != '\n')
+            ch->RenderB(bnd);
+    }
+    EndRender();
+
+    //OnChange();
+}
+void TextBase::SetParameters(float x, float y, float scale, glm::vec4* color_ptr) {
+    m_xPar = x;
+    m_yPar = y;
+    m_scalePar = scale;
+    if (color_ptr)
+        m_colorPar = *color_ptr;
+}
+void TextBase::ResizeTexs(Point2D<float> size) {
+    Framebuf::ResizeTexs(size);
+    TextData.ToRender = true;
+}
+void TextBase::SetText(std::string text) {
+    m_text = text;
+    if (TextData.CurIdx > text.size())
+        TextData.CurIdx = (int)text.size();
+    OnChange();
+    TextData.ToRender = true;
+}
+int TextBase::Init() {
+    Framebuf::Init();
+    Pick.FB = new PickFramebuf();
+    Pick.Pickable = false;
+
+    Characters = TextRend->Characters;
+    OnChange();
+    //GetStates().Changed = true;
+    return 0;
+}
+void TextBase::Render() {
+    Control::Render();
+}
+// ********************************************** LABEL *******************************************************
+int Label::Init() {
+    return TextBase::Init();
+}
+PixelInfo Label::PickFunc(float xNew, float yNew) {
+    return PixelInfo();
+}
+void Label::Prepare() {
+    RenderText();
+}
+void Label::Render() {
+    Control::Render();
+}
+std::vector<int>& TextBox::filter() {
+    static std::vector<int> chars = { 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46 };
+    return chars;
+}
+// ********************************************** TEXTBOX *******************************************************
+int TextBox::Init() {
+    int retVal = TextBase::Init();
+    Pick.Pickable = true;
+    Texs[1]->m_clear_color = { 0,0,0,0 };
+    return retVal;
+}
+PixelInfo TextBox::PickFunc(float xNew, float yNew) {
+    auto& pInfo = Pick.pInfo;
+    auto& states = GetStates();
+    DrawObj* child = Pick.PickedObj;
+    if (rmtd::MouseRay.Hover) {
+        e_MouseHover.Invoke();
+        rmtd::MouseRay.trace.push_back(this);
+    } else {
+        IsPressed = true;
+        states.Active = true;
+        rmtd::CurWin->ActiveObjs.push_back(this);
+        if (child == nullptr)
+            TextData.CurIdx = (int)TextData.Chars_v.size();
+        else {
+            TextData.CurIdx = pInfo.Ident.ObjID - 1;
+        }
+        OnChange();
+    }
+    return pInfo;
+}
+void TextBox::SetPickFb() {
+    auto& col = TextData.Chars_v;
+    Pick.FB->BeginRender();
+    int id = 0;
+    int r, g, b;
+    for (int i = 0; i < col.size(); ++i) {
+        auto ch = col[i];
+        Pick.Map.push_back(ch->GUID);
+        id++;
+        r = (id & 0x000000FF) >> 0;
+        g = (id & 0x0000FF00) >> 8;
+        b = (id & 0x00FF0000) >> 16;
+        Pick.FB->m_shader->SetVec4f("PickingColor", r / 255.0f, g / 255.0f, b / 255.0f, 1);
+        Pick.FB->RenderB(TextData.Bounds_v[i]);
+    }
+    Pick.FB->EndRender();
+}
+void TextBox::Prepare() {
+    if (TextData.ToRender)
+        RenderText();
+
+    int& index = TextData.CurIdx;
+    if (States.Active && index >= 0 && index <= TextData.Size()) {
+        BeginRender(false);
+
+        auto& tex = Texs[activeTex];
+        auto& pt = TextData.Offs_v[index];
+        float x = pt.X;
+        float y = pt.Y;
+
+        uchar c = '_';
+        CharFramebuf* ch = Characters[c];
+        float xpos = x + ch->Bearing.X;
+        float ypos = y + (Characters['H']->Bearing.Y - ch->Bearing.Y);
+        float w = ch->ActualSize.X;
+        float h = ch->ActualSize.Y;
+
+        float x1, x2, y1, y2;
+        x1 = xpos / tex->Size.X;
+        x2 = (xpos + w) / tex->Size.X;
+        y1 = ypos / tex->Size.Y;
+        y2 = (ypos + h) / tex->Size.Y;
+        utl::m01To11(x1);utl::m01To11(x2);utl::m01To11(y1);utl::m01To11(y2);
+        ch->m_shader->Use();
+        glDrawBuffer(GL_COLOR_ATTACHMENT1);
+        glClearColor(0, 0, 0, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ch->color = { 0,1,1,1 };
+        ch->RenderB({ x1, y1, x2, y2 });
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        EndRender();
+    }
+}
+void TextBox::Render() {
+    TextBase::Render();
+    activeTex = 1;
+    TextBase::Render();
+    activeTex = 0;
+}
+void TextBox::Update(float dt) {
+
+}
+bool TextBox::Check(float dt, InputArgs_S& input, int i) {
+    if (input.Keys[i] && !input.KeysProcessed[i]) {
+        float& hold = input.Hold[i];
+        bool flag = hold == 0.5;
+        hold -= dt;
+        //printf("hold = %f\n", hold);
+        if (flag || hold < 0) {
+            if (hold < 0)
+                hold = 0.04f;
+            //input.KeysProcessed[i] = true;
+            auto& states = GetStates();
+            OnChange();
+            return true;
+        }
+    }
+    return false;
+}
+void TextBox::ProcessInput(float dt, InputArgs_S& input) {
+
+    int& pos = TextData.CurIdx;
+    if (pos < 0) return;
+    bool shift = false;
+    auto avChars = filter();
+    if (input.Mode && GLFW_MOD_SHIFT) { shift = true; }
+    for (int i = 0; i < avChars.size(); i++) {
+        auto& item = charMap.Entries[avChars[i]];
+        if (Check(dt, input, item.code)) {
+            if (shift) { AddChar(pos, item.shift); pos++; } else { AddChar(pos, item.noShift); pos++; }
+        }
+    }
+    if (Check(dt, input, GLFW_KEY_ENTER)) { AddChar(pos, '\n'); pos++; }
+    if (Check(dt, input, GLFW_KEY_BACKSPACE) && pos > 0) { input.KeysProcessed[259] = false; RemoveChar(pos - 1); if (pos > 0) pos--; }
+    if (Check(dt, input, GLFW_KEY_LEFT) && pos > 0) { if (pos > 0) { pos--; } }
+    if (Check(dt, input, GLFW_KEY_RIGHT)) { if (pos < TextData.GetEnd()) { pos++; } }
+}
+
+bool TextBox::TryChangeActivity(bool value) {
+    States.Active = value;
+    if (value == false) {
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+        glDrawBuffer(GL_COLOR_ATTACHMENT1);
+        ClearColor(1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        OnChange();
+    }
+    return true;
+}
+
+void NumberBox::OnNumberChange() {
+    auto args = new NumberChangeEventArgs();
+    args->number_change = Number.Get() - old_number;
+    args->number_value = Number.Get();
+    e_NumberChange.Invoke(args);
+}
+
+// ********************************************** NUMBERBOX *******************************************************
+std::vector<int>& NumberBox::filter() {
+    static std::vector<int> chars = { 0,1,2,3,4,5,6,7,8,9 };
+    return chars;
+}
+static void numberbox_text_changed(sender_ptr sender, TextChangeEventArgs* e, params_t params) {
+    NumberBox* this_v = (NumberBox*)sender;
+    this_v->SetText(e->text_value);
+}
+int NumberBox::Init() {
+    TextBox::Init();
+    params_t pars;
+    e_TextChange.Add(numberbox_text_changed, pars);
+    float val = 0.7f;
+    m_colorPar = { val,val,val,1 };
+    return 0;
+}
+
+void NumberBox::ProcessInput(float dt, InputArgs_S& input) {
+    int& pos = TextData.CurIdx;
+    if (pos < 0) return;
+    bool shift = false;
+    auto& avChars = filter();
+    for (int i = 0; i < avChars.size(); i++) {
+        auto& item = charMap.Entries[avChars[i]];
+        if (Check(dt, input, item.code)) {
+            pos++;
+            AddChar(pos - 1, item.noShift);
+        }
+    }
+    auto item = charMap.Entries[44];// dot
+    if (!utl::has_dot(m_text) && Check(dt, input, item.code)) { AddChar(pos, item.noShift); pos++; }
+    item = charMap.Entries[10];// minus
+    if (pos == 0 && Check(dt, input, item.code)) { AddChar(pos, item.noShift); pos++; if (m_text[pos] == '.') { AddChar(pos, '0'); pos++; } }
+    if (Check(dt, input, GLFW_KEY_BACKSPACE) && pos > 0) { input.KeysProcessed[259] = false; pos--; RemoveChar(pos); if (pos < 0) pos = 0; }
+    if (Check(dt, input, GLFW_KEY_LEFT) && pos > 0) { if (pos > 0) { pos--; } }
+    if (Check(dt, input, GLFW_KEY_RIGHT)) { if (pos < TextData.GetEnd()) { pos++; } }
+}
+
+// ********************************************** IntNumberBox *******************************************************
+
+std::vector<int>& IntNumberBox::filter() {
+    static std::vector<int> chars = { 0,1,2,3,4,5,6,7,8,9 };
+    return chars;
+}
+void IntNumberBox::OnNumberChange() {
+}
+static void IntNumberBox_text_changed(sender_ptr sender, TextChangeEventArgs* e, params_t params) {
+    IntNumberBox* this_v = (IntNumberBox*)sender;
+    this_v->SetText(e->text_value);
+}
+int IntNumberBox::Init() {
+    TextBox::Init();
+    params_t pars;
+    e_TextChange.Add(IntNumberBox_text_changed, pars);
+    float val = 0.7f;
+    m_colorPar = { val,val,val,1 };
+    return 0;
+}
+
+void IntNumberBox::ProcessInput(float dt, InputArgs_S& input) {
+    int& pos = TextData.CurIdx;
+    if (pos < 0) return;
+    bool shift = false;
+    auto& avChars = filter();
+    for (int i = 0; i < avChars.size(); i++) {
+        auto& item = charMap.Entries[avChars[i]];
+        if (Check(dt, input, item.code)) {
+            pos++;
+            AddChar(pos - 1, item.noShift);
+        }
+    }
+    if (Check(dt, input, GLFW_KEY_BACKSPACE) && pos > 0) { input.KeysProcessed[259] = false; pos--; RemoveChar(pos); if (pos < 0) pos = 0; }
+    if (Check(dt, input, GLFW_KEY_LEFT) && pos > 0) { if (pos > 0) { pos--; } }
+    if (Check(dt, input, GLFW_KEY_RIGHT)) { if (pos < TextData.GetEnd()) { pos++; } }
+}
+
+// ********************************************** CLICKER *******************************************************
+int Clicker::Init() {
+    Framebuf::Init();
+    Pick.FB = new PickFramebuf();
+
+    btn_up_cb = new MouseClickData();
+    btn_up_cb->callback = release_callback;
+    btn_up_cb->sender = this;
+
+    float val = 0.2f;
+    m_clear_color_base = { val,val,val,1 };
+
+    return 0;
+}
+PixelInfo Clicker::PickFunc(float xNew, float yNew) {
+    auto& pInfo = Pick.pInfo;
+    auto& states = GetStates();
+    DrawObj* child = Pick.PickedObj;
+    if (rmtd::MouseRay.Hover) {
+        e_MouseHover.Invoke();
+        rmtd::MouseRay.trace.push_back(this);
+        if (child != nullptr)
+            child->PickAt(xNew, yNew);
+    } else {
+        if (child == nullptr) {
+
+            auto args = new MouseClickEventArgs();
+            //utils::AppendVec(args->clickChain, dpch::s_TraceInfo.Path);
+            e_MouseClick.QInvoke(args);
+            e_MousePress.QInvoke();
+            e_MouseRelease.QInvoke();
+            Dispatcher::MouseReleaseQ.push_back(btn_up_cb);
+            IsPressed = true;
+            states.Active = true;
+            OnChange();
+            rmtd::CurWin->ActiveObjs.push_back(this);
+
+        } else if (child->Pick.Pickable)
+            child->PickAt(xNew, yNew);
+    }
+    return pInfo;
+}
+void Clicker::Prepare() {
+    Framebuf::Prepare();
+}
+void Clicker::Render() {
+    if (IsPressed) {
+        m_shader->Use();
+        m_shader->SetBool("isSelected", true);
+    }
+    Control::Render();
+    m_shader->Use();
+    m_shader->SetBool("isSelected", false);
+}
+// ********************************************** BUTTON *******************************************************
+int Button::Init() {
+    Clicker::Init();
+
+    Content = new Label(Name + "button", 0.f, 0.f, 0.f, 0.f);
+    Content->m_scalePar = 0.7f;
+    Content->Size.Set("button_content_rel", { 1, 1 }, MMode::Rel);
+    Content->Size.Set("button_content_abs", { 0, 0 }, MMode::Abs);
+    Content->VAlign = VerAlign::Stretch;
+    Content->HAlign = HorAlign::Stretch;
+    Content->m_clear_color_base = { 0,0,0,0 };
+    Content->Init();
+    AddChild(Content);
+    //Content->Parent = this;
+
+    return 0;
+}
+void Button::Prepare() {
+    Framebuf::Prepare();
+    Content->BeginPrepare();
+    BeginRender(false);
+    Content->Render();
+    EndRender();
+}
+// ********************************************** CheckBox *******************************************************
+
+PixelInfo CheckBox::PickFunc(float xNew, float yNew) {
+    auto& pInfo = Pick.pInfo;
+    auto& states = GetStates();
+    if (rmtd::MouseRay.Hover) {
+        e_MouseHover.Invoke();
+    } else {
+        auto args = new MouseClickEventArgs();
+        e_MouseClick.Invoke(args);
+        Toggle();
+        OnChange();
+    }
+    return pInfo;
+}
+
+void CheckBox::Toggle() {
+    IsPressed = !IsPressed;
+    IsEnabled.Set(IsPressed);
+    OnToggle();
+}
+
+void CheckBox::OnToggle() {
+
+    auto e = new CheckBoxEventArgs();
+    e->Value = *IsEnabled.value;
+    e_Toggle.Invoke(e);
+}
+
+int CheckBox::Init() {
+    Clicker::Init();
+
+    float val = 0.8f;
+    m_clear_color_base = { val,val,val,1 };
+    Content = new Label(Name + "CheckBox", 0.f, 0.f, 0.f, 0.f);
+    Content->m_scalePar = 0.8f;
+    Content->Size.Set("CheckBox_content_rel", { 1, 1 }, MMode::Rel);
+    Content->VAlign = VerAlign::Stretch;
+    Content->HAlign = HorAlign::Stretch;
+    Content->m_clear_color_base = { 0,0,0,0 };
+    Content->Init();
+    Content->SetText("");
+    AddChild(Content);
+
+    return 0;
+}
+void CheckBox::Prepare() {
+    Framebuf::Prepare();
+    Content->BeginPrepare();
+    BeginRender(false);
+    Content->Render();
+    EndRender();
+}
+
+// ********************************************** NumBox1 *******************************************************
+struct NBCPars {
+    int mod;
+    float* step;
+};
+static void num_btn_click(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+    NumBox1* nb = (NumBox1*)params[0];
+    NBCPars* pars = (NBCPars*)params[1];
+    float change = *(pars->step) * pars->mod;
+    //nb->m_count += change;
+    nb->SetValue(nb->NB->Number.Get() + change);
+}
+int NumBox1::Init() {
+    Control::Init();
+    float btn_size_x = 20;
+
+    NB = new NumberBox(Name + "_nb", 0.f, 0.f, 0.f, 0.f);
+    NB->Size.Set("numbox1_nb_rel", { 1,1 }, MMode::Rel);
+    NB->Size.Set("numbox1_nb_abs", { -btn_size_x,0 }, MMode::Abs);
+    NB->Init();
+    NB->GetActiveTex().m_clear_color = { 0.2,0.2,0.2,1 };
+    NB->VAlign = VerAlign::Stretch;
+    AddChild(NB);
+
+    Button* plus_btn = new Button(Name + "_plus_btn", 0.f, 0.f, 0.f, 0.f);
+    plus_btn->Size.Set("numbox1_btn_rel", { 0,0.5 }, MMode::Rel);
+    plus_btn->Size.Set("numbox1_btn_abs", { btn_size_x,0 }, MMode::Abs);
+    plus_btn->HAlign = HorAlign::Right;
+    plus_btn->VAlign = VerAlign::Top;
+    plus_btn->Init();
+    plus_btn->Content->Name = plus_btn->Name + "_content";
+    plus_btn->Content->SetText("+");
+    //plus_btn->Content->Init();
+    PB = plus_btn;
+    AddChild(plus_btn);
+    //plus_btn->IsSizeAbsolute = false;
+
+    Button* mins_btn = new Button(Name + "_mins_btn", 0.f, 0.f, 0.f, 0.f);
+    mins_btn->Size.Set("numbox1_btn_rel", { 0,0.5 }, MMode::Rel);
+    mins_btn->Size.Set("numbox1_btn_abs", { btn_size_x,0 }, MMode::Abs);
+    mins_btn->HAlign = HorAlign::Right;
+    mins_btn->VAlign = VerAlign::Bottom;
+    mins_btn->Init();
+    mins_btn->Content->Name = mins_btn->Name + "_content";
+    mins_btn->Content->SetText("-");
+    //mins_btn->Content->Init();
+    AddChild(mins_btn);
+    //mins_btn->IsSizeAbsolute = false;
+    if (TextRend) {
+        NB->SetTextRend(*TextRend);
+        plus_btn->Content->SetTextRend(*TextRend);
+        mins_btn->Content->SetTextRend(*TextRend);
+    }
+
+    params_t pars;
+    pars.push_back(this);
+    pars.push_back(new NBCPars{ 1, &step });
+    plus_btn->e_MouseClick.Add(num_btn_click, pars);
+    params_t pars2;
+    pars2.push_back(this);
+    pars2.push_back(new NBCPars{ -1, &step });
+    mins_btn->e_MouseClick.Add(num_btn_click, pars2);
+
+    GetActiveTex().m_clear_color = { 0,0,0,0 };
+
+    return 0;
+}
+PixelInfo NumBox1::PickFunc(float xNew, float yNew) {
+    auto& pInfo = Pick.pInfo;
+    auto& states = GetStates();
+    DrawObj* child = Pick.PickedObj;
+
+    if (rmtd::MouseRay.Hover) {
+        e_MouseHover.Invoke();
+        rmtd::MouseRay.trace.push_back(this);
+        if (child != nullptr)
+            child->PickAt(xNew, yNew);
+    } else {
+        IsPressed = true;
+        states.Active = true;
+        rmtd::CurWin->ActiveObjs.push_back(this);
+        if (child == nullptr) {
+            return pInfo;
+        }
+        if (child->Pick.Pickable)
+            child->PickAt(xNew, yNew);
+
+        OnChange();
+    }
+    return pInfo;
+}
+
+void NumBox1::Prepare() {
+    Framebuf::Prepare();
+}
+
+void NumBox1::Render() {
+    Framebuf::Render();
+}
+// ********************************************** Placement *******************************************************
+void Placement_S::Place() {
+    auto unfixed = m_owner->ActualPos - Margin_LT;
+    Val = (unfixed) / Scale;
+    if (Val.Trim(0, 1))
+        m_owner->Pos.Add("base_abs", Get() - unfixed);
+}
+
+void Placement_S::Compute() {
+    Scale = m_owner->Parent->LogicalSize.derefC() - m_owner->ActualSize - Margin_LT - Margin_RB;
+    Val = (m_owner->ActualPos - Margin_LT) / Scale;
+}
+
+// ********************************************** DRAGGER *******************************************************
+void begin_drag(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+    Dragger* v_this = (Dragger*)sender;
+    WindowBase* win = v_this->win;
+    Point2D<float> scaled = win->cursor_pos / win->m_size_scale;
+    v_this->StartPos = v_this->ActualPos;
+    v_this->DragOffset = scaled - v_this->ActualPos;
+}
+void end_drag(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+    Dragger* v_this = (Dragger*)sender;
+    WindowBase* win = v_this->win;
+    Point2D<float> scaled = win->cursor_pos / win->m_size_scale;
+    v_this->Pos.Add("base_abs", v_this->Pos["draggin"] + v_this->Pos["position"]);
+    v_this->Pos.Set("draggin", {});
+    v_this->Pos.Set("position", {});
+}
+void drag(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+    Dragger* v_this = (Dragger*)sender;
+    WindowBase* win = v_this->win;
+    Point2D<float> scaled = win->cursor_pos / win->m_size_scale;
+
+    v_this->Position(scaled);
+}
+void Dragger::Position(Point2D<float> newOffsetPos) {
+    Point2D<float> change{ 0,0 };
+    if (HDrag)
+        change.X = newOffsetPos.X - StartPos.X - DragOffset.X;
+    if (VDrag)
+        change.Y = newOffsetPos.Y - StartPos.Y - DragOffset.Y;
+    Pos.Set("base_abs", StartPos + change);
+    ComputeBounds();
+    OnChange();
+}
+void Dragger::ComputeBounds() {
+    Placement.Compute();
+    Placement.Place();
+    Framebuf::ComputeBounds();
+}
+void Dragger::Move(Point2D<float> change) {
+    Pos.Add("base_abs", change);
+    ComputeBounds();
+    OnChange();
+}
+void Dragger::ComputePlacement() {
+    Placement.Compute();
+}
+int Dragger::Init() {
+    Clicker::Init();
+    e_MouseClick.Add(begin_drag, {});
+    e_MouseRelease.Add(end_drag, {});
+    e_MousePress.Add(drag, {});
+
+    return 0;
+}
+void Dragger::Prepare() {
+    Clicker::Prepare();
+}
+void Dragger::Render() {
+    if (IsPressed) {
+        m_shader->Use();
+        m_shader->SetBool("isSelected", true);
+    }
+    Control::Render();
+    m_shader->Use();
+    m_shader->SetBool("isSelected", false);
+}
+
+// ********************************************** SLIDER *******************************************************
+struct SBCPars {
+    int direction = 1;
+    ScrollBar* target = nullptr;
+};
+void ScrollBar::SetOrientation(Orientation_S ori) {
+    if (ori != Orientation && ori != Orientation_S::NONE)
+        change.Swap();
+    Orientation = ori;
+    switch (ori) {
+        case Orientation_S::NONE:
+            break;
+        case Orientation_S::Horizontal:
+            //PB->Pos.Set("sa_sb_rel", { 0, 1 }, MMode::Rel);
+            //PB->Pos.Set("sa_sb_abs", { 0, -bar_size });
+            PB->Align(HorAlign::Right, VerAlign::Stretch);
+            MB->Align(HorAlign::Left, VerAlign::Stretch);
+            DRG->Align(HorAlign::None, VerAlign::Stretch);
+            PB->Content->SetText(">");
+            MB->Content->SetText("<");
+            DRG->HDrag = true;
+            DRG->VDrag = false;
+            DRG->Size.Set("base_abs", { 4 * bar_size, 0 });
+            DRG->Pos.Set("base_abs", { 0, bar_size }, MMode::Abs);
+            DRG->Placement.Margin_RB = { bar_size, 0 };
+            DRG->Placement.Margin_LT = { bar_size, 0 };
+            Align(HorAlign::None, VerAlign::Bottom);
+            Size.Set("scroll_stretch", { 1, 0 });
+            Size.Set("scroll_abs", { 0, bar_size }, MMode::Abs);
+
+            break;
+        case Orientation_S::Vertical:
+
+            //PB->Pos.Set("sa_sb_rel", { 1, 0 }, MMode::Rel);
+            //PB->Pos.Set("sa_sb_abs", { -bar_size, 0 });
+            PB->Align(HorAlign::Stretch, VerAlign::Bottom);
+            MB->Align(HorAlign::Stretch, VerAlign::Top);
+            DRG->Align(HorAlign::Stretch, VerAlign::None);
+            PB->Content->SetText("v");
+            MB->Content->SetText("^");
+            DRG->HDrag = false;
+            DRG->VDrag = true;
+            DRG->Size.Set("base_abs", { 0, 4 * bar_size });
+            DRG->Pos.Set("base_abs", { bar_size,0 }, MMode::Abs);
+            DRG->Placement.Margin_RB = { 0, bar_size };
+            DRG->Placement.Margin_LT = { 0, bar_size };
+            Align(HorAlign::Right, VerAlign::None);
+            Size.Set("scroll_stretch", { 0, 1 });
+            Size.Set("scroll_abs", { bar_size, 0 }, MMode::Abs);
+            break;
+        default:
+            break;
+    }
+    PB->States.Changed = true;
+    MB->States.Changed = true;
+    DRG->States.Changed = true;
+    OnChange();
+    std::string key = "sa_sb_abs";
+    PB->Size.Set(key, { bar_size, bar_size });
+    MB->Size.Set(key, { bar_size, bar_size });
+}
+static void scrollbar_btn_click(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+    SBCPars* pars = (SBCPars*)params[0];
+    ScrollBar* this_v = (ScrollBar*)pars->target;
+    this_v->DRG->Move(this_v->change * pars->direction);
+    this_v->OnScroll();
+}
+static void scrollbar_drag(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+    SBCPars* pars = (SBCPars*)params[0];
+    ScrollBar* this_v = (ScrollBar*)pars->target;
+    this_v->OnScroll();
+}
+int ScrollBar::Init() {
+    Control::Init();
+    Size.Set("scroll_stretch", { 0, 0 }, MMode::Rel);
+    Size.Set("scroll_abs", { 0, 0 }, MMode::Abs);
+    float test = 0;
+    Button* plus_btn = new Button(Name + "_plus_btn", 0.f, 0.f, test, test);
+    plus_btn->Init();
+    plus_btn->Content->Name = plus_btn->Name + "_content";
+    //plus_btn->Content->Init();
+    PB = plus_btn;
+    AddChild(plus_btn);
+
+    Button* mins_btn = new Button(Name + "_mins_btn", 0.f, 0.f, test, test);
+    mins_btn->Init();
+    mins_btn->Content->Name = mins_btn->Name + "_content";
+    //mins_btn->Content->Init();
+    MB = mins_btn;
+    AddChild(mins_btn);
+
+    Dragger* drg = new Dragger(Name + "_scroll_drag", 0, 0, bar_size, bar_size);
+    drg->Init();
+    DRG = drg;
+    AddChild(drg);
+
+    params_t pars;
+    pars.push_back(new SBCPars{ 1, this });
+    plus_btn->e_MouseClick.Add(scrollbar_btn_click, pars);
+    params_t pars2;
+    pars2.push_back(new SBCPars{ -1, this });
+    mins_btn->e_MouseClick.Add(scrollbar_btn_click, pars2);
+    params_t pars3;
+    pars3.push_back(new SBCPars{ -1, this });
+    DRG->e_MousePress.Add(scrollbar_drag, pars3);
+
+    static const float val = 0.f;
+    GetActiveTex().m_clear_color = { val,val,val,0.5f };
+    SetOrientation(Orientation);
+
+    return 0;
+}
+void ScrollBar::OnScroll() {
+    auto args = new ScrollEventArgs();
+    args->scroll_change = LValC = DRG->Placement.Val - OldVal;
+    args->scroll_value = OldVal = DRG->Placement.Val;
+    e_Scroll.Invoke(args); // ovo resi
+}
+void ScrollBar::Prepare() {
+    Framebuf::Prepare();
+}
+void ScrollBar::Render() {
+    Control::Render();
+}
+
+// ********************************************** ViewSpace *******************************************************
+void ViewSpace::SetLinked() {
+    ComputeMeasures();
+    Framebuf::ComputeBounds();
+    auto oldVSR = ViewSizeRatio;
+    ViewSizeRatio = ActualSize / SpaceSize;
+    if (m_Bounds.Size() != oldVSR)
+        UpdateTex();
+    UpdateCords();
+    Framebuf::SetLinked();
+}
+
+void ViewSpace::Link(Framebuf* parent) {
+    Framebuf::Link(parent);
+    //Parent = parent;
+}
+Point2D<float> ViewSpace::IntendedSize() {
+    return LogicalSize.derefC();
+}
+void ViewSpace::ResizeTexs(Point2D<float> size) {
+    //Framebuf::ResizeTexs(SpaceSize);
+}
+
+void ViewSpace::ComputeBounds() {
+}
+
+
+void ViewSpace::SetSpaceSize(Point2D<float> newSize) {
+    SpaceSize = newSize;
+    Framebuf::ResizeTexs(SpaceSize);
+}
+
+int ViewSpace::indexer[] = { 0, 3, 0, 1, 2, 3, 2, 1 };
+void ViewSpace::MoveView(Point2D<float> nvc, Point2D<float> factor) {
+    ViewSizeRatio = ActualSize / SpaceSize;
+    nvc *= factor;
+    auto tmp = -ViewSizeRatio;
+    tmp.X += 1;
+    tmp.Y += 1;
+    nvc = nvc * tmp;
+    m_texCords_old = m_texCords;
+    m_texCords.x1 += nvc.X;
+    m_texCords.y1 += nvc.Y;
+    m_texCords.x2 += nvc.X;
+    m_texCords.y2 += nvc.Y;
+    SPosRel += nvc;
+    UpdateTex();
+    OnChange();
+}
+void ViewSpace::UpdateCords() {
+    Bounds directed = m_Bounds.Directed();
+    float* vert_cord = (float*)&directed;
+    float last[20];
+    utl::copy_arr<float>(data, last, 20);
+    utl::fillBuffer<float>(vert_cord, data, 20, 0, 5, 2, indexer);
+    std::cout << last << std::endl << data << std::endl;
+    UpdateBuffer(true, false);
+}
+void ViewSpace::UpdateTex() {
+    m_texCords_old = m_texCords;
+    m_texCords.x1 = SPosRel.X;
+    m_texCords.y1 = SPosRel.Y;
+    m_texCords.x2 = SPosRel.X + ViewSizeRatio.X;
+    m_texCords.y2 = SPosRel.Y + ViewSizeRatio.Y;
+    auto directed = m_texCords.DirectedTex();
+    float* tex_cord = (float*)&directed;
+    utl::fillBuffer<float>(tex_cord, data, 20, 3, 5, 2, indexer);
+    UpdateBuffer(false, true);
+}
+bool ViewSpace::PickAt(float x, float y) {
+    dpch::TraceIn(this);
+    float xNew, yNew;
+    std::tie(xNew, yNew) = utl::RemapPoint(x, y, m_Bounds);
+    Bounds bnd = { 0,0,0,0 };
+    float sx = SpaceSize.X / ActualSize.X;
+    float sy = SpaceSize.Y / ActualSize.Y;
+    bnd.x2 = sx;
+    bnd.y2 = sy;
+    utl::m01To11(bnd);
+    float xSNew, ySNew;
+    std::tie(xSNew, ySNew) = utl::RemapPoint(xNew, yNew, bnd);
+    xSNew += SPosRel.X; ySNew += SPosRel.Y;
+    PixelInfo pInfo = BeginPickFunc(xSNew, ySNew);
+    dpch::TraceOut();
+    return true;
+}
+void ViewSpace::UpdateBuffer(bool vert, bool tex) {
+    if (!(vert || tex)) return;
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(data), &data);
+    glBindVertexArray(VAO2);
+    if (vert) {
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    }
+    if (tex) {
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
+int ViewSpace::Init() {
+    Framebuf::Init();
+
+    LogicalSize.X = &(SpaceSize.X);
+    LogicalSize.Y = &(SpaceSize.Y);
+    ViewSizeRatio = ActualSize / SpaceSize;
+    m_texCords_old = m_texCords;
+    m_texCords.x1 = SPosRel.X;
+    m_texCords.y1 = SPosRel.Y;
+    m_texCords.x2 = SPosRel.X + ViewSizeRatio.X;
+    m_texCords.y2 = SPosRel.Y + ViewSizeRatio.Y;
+    Framebuf::ResizeTexs(SpaceSize);
+    Bounds dc = {};
+    Bounds bn_tx = m_texCords.DirectedTex();
+    Bounds dt = {
+        bn_tx.u1,
+        bn_tx.v1,
+        bn_tx.u2,
+        bn_tx.v2,
+    };
+    float tmp_data[] = {
+        dc.x1, dc.y2, 0.0f, dt.u1, dt.v2,
+        dc.x1, dc.y1, 0.0f, dt.u1, dt.v1,
+        dc.x2, dc.y2, 0.0f, dt.u2, dt.v2,
+        dc.x2, dc.y1, 0.0f, dt.u2, dt.v1,
+    };
+    for (int i = 0; i < 20; i++) data[i] = tmp_data[i];
+    glGenVertexArrays(1, &VAO2);
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(data), &data, GL_DYNAMIC_DRAW);
+    glBindVertexArray(VAO2);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    static const float val = 0.8f;
+    GetActiveTex().m_clear_color = { 1.f,1.f,val,1.f };
+
+    return 0;
+}
+
+void ViewSpace::Render() {
+    this->m_shader->Use();
+    glActiveTexture(GL_TEXTURE0);
+    this->Texs[activeTex]->Bind();
+    glBindVertexArray(VAO2);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
+
+// ********************************************** STACKPANEL *******************************************************
+void StackPanel::OnChange() {
+    Measure();
+    Framebuf::OnChange();
+    Arrange();
+}
+void StackPanel::LinkChild(DrawObj2D* child) {
+    child->Link(this);
+    AdjustChild(child);
+    Measure();
+    Arrange();
+    child->SetLinked();
+}
+void StackPanel::BeginLink() {
+    Linked = true;
+    States.Changed = true;
+    for (auto child : Childs) {
+        child->Link(this);
+        AdjustChild(child);
+    }
+}
+void StackPanel::SetLinked() {
+    if (!Linked) {
+        BeginLink();
+        Measure();
+    }
+    Arrange();
+    for (auto child : Childs) {
+        child->Link(this);
+        child->SetLinked();
+    }
+}
+inline void StackPanel::AdjustChild(DrawObj2D* child) {
+    bool isVert = Orientation == Orientation_S::Vertical;
+    auto child_size = child->ActualSize;
+    child->Size.Clear();
+    child->Size.Add("child_computed_abs", child_size, MMode::Abs);
+    if (isVert) {
+        child->VAlign = VerAlign::None;
+        child->HAlign = HorAlign::Stretch;
+    } else {
+        child->VAlign = VerAlign::Stretch;
+        child->HAlign = HorAlign::None;
+    }
+}
+void StackPanel::Measure() {
+    if (!Linked)
+        BeginLink();
+    bool isVert = Orientation == Orientation_S::Vertical;
+    Point2D<int> mod = { 0,1 };
+    Point2D<float> pos{};
+    Point2D<float>MeasuredSize{};
+    if (isVert) {
+        Align(HorAlign::Stretch, VerAlign::None);
+    } else {
+        mod.Swap();
+        Align(HorAlign::None, VerAlign::Stretch);
+    }
+    auto childs = UCChilds();
+    for (auto child : childs) {
+        child->Measure();
+        auto child_size = child->ActualSize * mod;
+        MeasuredSize += child_size;
+        child->Pos.Clear();
+        child->Pos.Add("stackpanel_computed_abs", pos, MMode::Abs);
+        pos += child_size;
+    }
+    Size.Clear();
+    Size.Add("stackpanel_abs", MeasuredSize, MMode::Abs);
+
+}
+void StackPanel::Arrange() {
+    Framebuf::Arrange();
+
+}
+int StackPanel::Init() {
+    Control::Init();
+    static const float val = 0.f;
+    GetActiveTex().m_clear_color = { val,val,val,0.5f };
+    return 0;
+}
+void StackPanel::Prepare() {
+    Control::Prepare();
+}
+void StackPanel::Render() {
+    Control::Render();
+}
+
+// ********************************************** SCROLLABLE *******************************************************
+struct SAbleCPars {
+    bool onX = true;
+    Scrollable* target = nullptr;
+};
+static void scrollbar_scroll(sender_ptr sender, ScrollEventArgs* e, params_t params) {
+    SAbleCPars* pars = (SAbleCPars*)params[0];
+    Scrollable* this_v = (Scrollable*)pars->target;
+    if (pars->onX) {
+        this_v->VS->MoveView(e->scroll_change, { 1,0 });
+    } else {
+        this_v->VS->MoveView(e->scroll_change, { 0,1 });
+    }
+}
+void Scrollable::MoveView() {
+
+}
+void Scrollable::Link(Framebuf* parent) {
+    Control::Link(parent);
+}
+void Scrollable::Unlink() {
+    Control::Unlink();
+}
+void Scrollable::SetViewSpace(ViewSpace* vs) {
+    vs->Size.Clear();
+    vs->Pos.Clear();
+    vs->Size.Set("sable_cont_rel", { 1,1 }, MMode::Rel);
+    vs->Size.Set("sable_cont_abs", { -bar_size, -bar_size }, MMode::Abs);
+    VS = vs;
+    AddChild(vs);
+}
+void Scrollable::SetProxy(Control* proxy_p) {
+    //AddChild(proxy_p);
+    Proxy = proxy_p;
+    OnChange();
+}
+DrawObj2D* Scrollable::ProxyAddChild(DrawObj2D* dObj) {
+    return Proxy->AddChild(dObj);
+    OnChange();
+}
+DrawObj2D* Scrollable::ProxyAddChilds(std::vector<DrawObj2D*> dObjs) {
+    return Proxy->AddChilds(dObjs);
+    OnChange();
+}
+void Scrollable::ProxyClearChilds() {
+    Proxy->ClearChilds();
+    OnChange();
+}
+int Scrollable::Init() {
+    Control::Init();
+
+    ScrollBar* right_sb = new ScrollBar(Name + "_right_sb", 0.f, 0.f, 0.f, 0.f);
+    right_sb->bar_size = bar_size;
+    right_sb->Init();
+    right_sb->Size.Add("sable_abs", { 0, -bar_size }, MMode::Abs);
+    right_sb->SetOrientation(Orientation_S::Vertical);
+    RSB = right_sb;
+    AddChild(right_sb);
+
+    ScrollBar* bottom_sb = new ScrollBar(Name + "_bottom_sb", 0.f, 0.f, 0.f, 0.f);
+    bottom_sb->bar_size = bar_size;
+    bottom_sb->Init();
+    bottom_sb->Size.Add("sable_abs", { -bar_size, 0 }, MMode::Abs);
+    bottom_sb->SetOrientation(Orientation_S::Horizontal);
+    BSB = bottom_sb;
+    AddChild(bottom_sb);
+
+    ViewSpace* view_space = new ViewSpace(Name + "_view_space", 0.f, 0.f, 0.f, 0.f);
+    view_space->Size.Set("sable_cont_rel", { 1,1 }, MMode::Rel);
+    view_space->Size.Set("sable_cont_abs", { -bar_size, -bar_size }, MMode::Abs);
+    view_space->Init();
+    VS = view_space;
+    Proxy = VS;
+    AddChild(view_space);
+
+    params_t pars;
+    pars.push_back(new SAbleCPars{ false, this });
+    right_sb->e_Scroll.Add(scrollbar_scroll, pars);
+    params_t pars2;
+    pars2.push_back(new SAbleCPars{ true, this });
+    bottom_sb->e_Scroll.Add(scrollbar_scroll, pars2);
+
+    static const float val = 0.8f;
+    GetActiveTex().m_clear_color = { val,val,val,1.f };
+
+    return 0;
+}
+
+void Scrollable::Render() {
+    Control::Render();
+}
+// ********************************************** MOVABLE *******************************************************
+
+void Movable::MoveView() {
+}
+void Movable::SetContent(Control* cont) {
+    ClearChilds();
+    cont->Size.Clear();
+    cont->Pos.Clear();
+    cont->Size.Set("bar_rel", { 1,1 }, MMode::Rel);
+    cont->Size.Add({ 0, -bar_size }, MMode::Abs);
+    cont->Align(HorAlign::Stretch, VerAlign::Bottom);
+    Content = cont;
+    AddChild(cont);
+}
+int Movable::Init() {
+    Dragger::Init();
+
+    static const float val = 0.1f;
+    GetActiveTex().m_clear_color = { val,val,0.2f,1.f };
+    return 0;
+}
+void Movable::Render() {
+    Control::Render();
+}
+
+// ********************************************** TexDisplay *******************************************************
+
+void TexDisplay::SetTarget(uint guid) {
+    Target = (DrawObj2D*)rmtd::GetElement(guid);
+    if (Target != nullptr && Target->States.DisplayReady)
+        DP->CopyTexture(Target, 0);
+}
+static void texdisplay_update(sender_ptr sender, EventArgs* e, params_t params) {
+    sender->Cast<DrawObj2D>()->OnChange();
+};
+int TexDisplay::Init() {
+    Control::Init();
+
+    Framebuf* dspl = new Framebuf(Name + "_texdisplay");
+    dspl->Init();
+    dspl->Size.Set("texdspl_rel", { 1,1 }, MMode::Rel);
+    dspl->Size.Set("base_abs", { 0,-FIELD_H });
+    AddChild(dspl);
+    DP = dspl;
+
+    NumBox1* nb = new NumBox1(Name + "_nb", 0, 0, 0, 0, FIELD_H);
+    nb->Align(HorAlign::Stretch, VerAlign::Bottom);
+    nb->SetTextRend(*TextRend);
+    nb->Init();
+    NB1 = nb;
+    AddChild(nb);
+
+    Dispatcher::e_Update.Add(texdisplay_update, { }, dspl);
+    nb->NB;
+
+    static const float val = 0.1f;
+    GetActiveTex().m_clear_color = { val,val,0.2f,1.f };
+    dspl->GetActiveTex().m_clear_color = { val,val,0.2f,1.f };
+    return 0;
+}
+void TexDisplay::Render() {
+    Control::Render();
+}
+
+// ********************************************** PropertyFiled *******************************************************
+
+int PropertyFiled::Init() {
+    Control::Init();
+    Size.Set("prop_field_rel", { 1,0 }, MMode::Rel);
+    Size.Set("prop_field_abs", { 0, FIELD_H }, MMode::Abs);
+
+    Label* title = new Label(Name + "_fieldtitle", 0, 0, 0, 0);
+    float val = 0.2f;
+    title->m_clear_color_base = { val,val,val,1 };
+    title->Size.Set("prop_field_lb_rel", { 0.35f,0 }, MMode::Rel);
+    title->Size.Set("prop_field_lb_abs", { 0, FIELD_H }, MMode::Abs);
+    title->Init();
+    Title = title;
+    Title->m_scalePar = 0.8f;
+    AddChild(title);
+
+    return 0;
+}
+void PropertyFiled::Render() {
+    Control::Render();
+}
+
+// ********************************************** StackFiled *******************************************************
+
+int StackFiled::Init() {
+    StackPanel::Init();
+
+    Header = new Control(Name + "_Header");
+    Header->Init();
+    Header->Size.Set("prop_field_header_abs", { 0, FIELD_H }, MMode::Abs);
+    Label* title = new Label(Header->Name + "_Title", 0, 0, 0, 0);
+    float val = 0.2f;
+    title->m_clear_color_base = { val,val,val,1 };
+    title->Size.Set("prop_field_lb_rel", { 0.35f,0 }, MMode::Rel);
+    title->Size.Set("prop_field_lb_abs", { 0, FIELD_H }, MMode::Abs);
+    title->Init(); Title = title; Title->m_scalePar = 0.8f;
+    AddChild(Header);
+    Header->AddChild(title);
+
+    return 0;
+}
+void StackFiled::Render() {
+    Control::Render();
+}
+// ********************************************** TextField *******************************************************
+int TextField::Init() {
+    PropertyFiled::Init();
+
+    TextBox* tb = new TextBox(Name + "_tb", 0, 0, 0, 0);
+    tb->m_clear_color_base = { 1,1,0,1 };
+    tb->Size.Set("prop_field_tb_rel", { 0.65f,0 }, MMode::Rel);
+    tb->Size.Set("prop_field_tb_abs", { 0, FIELD_H }, MMode::Abs);
+    tb->Pos.Set("prop_field_tb_rel", { 0.35f,0 }, MMode::Rel);
+    tb->Init();
+    AddChild(tb);
+
+    return 0;
+}
+void TextField::Render() {
+    Control::Render();
+}
+// ********************************************** NumberField *******************************************************
+int NumberField::Init() {
+    PropertyFiled::Init();
+    NumBox1* nb = new NumBox1(Name + "_nb", 0, 0, 0, 0, 0);
+    nb->Size.Set("prop_field_nb_rel", { 0.65f,0 }, MMode::Rel);
+    nb->Size.Set("prop_field_nb_abs", { 0, FIELD_H }, MMode::Abs);
+    nb->Pos.Set("prop_field_nb_rel", { 0.35f,0 }, MMode::Rel);
+    nb->Init();
+    nb->NB->m_colorPar = { 1,1,1,1 };
+    NB = nb;
+    AddChild(nb);
+
+    bmtd::SetBinding(&nb->NB->Number, &Number, BindingMode::Both);
+    return 0;
+}
+void NumberField::Render() {
+    Control::Render();
+}
+// ********************************************** CheckBoxField *******************************************************
+int CheckBoxField::Init() {
+    PropertyFiled::Init();
+
+    CheckBox* cb = new CheckBox(Name + "_cb", 0, 0, FIELD_H, FIELD_H);
+    cb->m_clear_color_base = { 1,1,0,1 };
+    cb->HAlign = HorAlign::Right;
+    cb->Init();
+    cb->Content->SetText("X");
+    cb->Content->m_colorPar = { 1,1,1,1 };
+    Title->Size.Set("prop_field_lb_rel", { 0.7f,0 }, MMode::Rel);
+    Title->Size.Set("prop_field_lb_abs", { 0, FIELD_H }, MMode::Abs);
+    AddChild(cb);
+    CB = cb;
+
+    return 0;
+}
+void CheckBoxField::Render() {
+    Control::Render();
+}
+
+// ********************************************** CollapsableField *******************************************************
+void toggle_callback(CheckBox* sender, CheckBoxEventArgs* e, params_t params) {
+    CollapsableField* this_v = (CollapsableField*)params[0];
+    if (e->Value)
+        this_v->Content->Visibility = VisibilityE::Visible;
+    else
+        this_v->Content->Visibility = VisibilityE::Collapsed;
+    this_v->Content->OnChange();
+}
+int CollapsableField::Init() {
+    StackFiled::Init();
+
+    CheckBox* collapser = new CheckBox(Header->Name + "_Collapser", 0, 0, FIELD_H, FIELD_H);
+    collapser->m_clear_color_base = { 1,1,0,1 };
+    collapser->HAlign = HorAlign::Right;
+    collapser->Init();
+    collapser->Content->SetText("X");
+    collapser->Content->m_colorPar = { 1,1,1,1 };
+    Title->Size.Set("prop_field_lb_rel", { 0.7f,0 }, MMode::Rel);
+    Title->Size.Set("prop_field_lb_abs", { 0, FIELD_H }, MMode::Abs);
+    Header->AddChild(collapser);
+    Collapser = collapser;
+    StackPanel* content = new StackPanel(Name + "_Content");
+    content->Init();
+    AddChild(content);
+    Content = content;
+    Content->Visibility = VisibilityE::Collapsed;
+    params_t pars;
+    pars.push_back(this);
+    collapser->e_Toggle.Add(toggle_callback, pars);
+
+    return 0;
+}
+void CollapsableField::Prepare() {
+    Control::Prepare();
+}
+// ********************************************** TextureField *******************************************************
+int TextureField::Init() {
+    StackFiled::Init();
+
+    NumBox1* nb = new NumBox1(Header->Name + "_nb", 0, 0, 0, 0, 0);
+    nb->Size.Set("prop_field_nb_rel", { 0.65f,0 }, MMode::Rel);
+    nb->Size.Set("prop_field_nb_abs", { 0, FIELD_H }, MMode::Abs);
+    nb->Pos.Set("prop_field_nb_rel", { 0.35f,0 }, MMode::Rel);
+    nb->Init();
+    nb->NB->m_colorPar = { 1,1,1,1 };
+    nb->NB->IsDecimal = false;
+    NB = nb;
+    Header->AddChild(nb);
+    bmtd::SetBinding(&nb->NB->Number, &texID, BindingMode::Both);
+    texBuf = new Texbuf(Name + "_texBuf", 0, 0, 0, 170);
+    texBuf->Init();
+    AddChild(texBuf);
+
+    return 0;
+}
+
+// ********************************************** TextureWithIntenstiyField *******************************************************
+int AdjustTextureField::Init() {
+    TextureField::Init();
+
+
+    NB_Intens = new NumBox1(Header->Name + "_nb_intens", 0, 0, 0, 0, 0);
+    NB_Intens->Size.Set("prop_field_nb_intens_abs", { 0, FIELD_H }, MMode::Abs);
+    NB_Intens->Init();
+    NB_Intens->NB->m_colorPar = { 1,1,1,1 };
+    NB_Intens->step = 0.1f;
+    intensity = NB_Intens->NB->Number.value;
+    NB_Intens->NB->SetNumber(1.0f);
+    AddChild(NB_Intens);
+
+    CBF_Enable = new CheckBoxField("CBF_Enable");
+    CBF_Enable->Init();
+    CBF_Enable->Title->SetText("Enable");
+    //CBF_Enable->CB->IsEnabled.Set(true);
+    AddChild(CBF_Enable);
+
+    return 0;
+}
+// ********************************************** Control3D *******************************************************
+void Control3D::RaiseInspector() {
+    if (rmtd::InspData.active == this)
+        return;
+    rmtd::InspData.SetInspector(this, InspCompon);
+}
+int Control3D::Init() { return 0; }
+void Control3D::Update(float dt) {}
+void Control3D::ProcessInput(float dt, InputArgs_S& input) {}
+void Control3D::Render() {
+    Render(m_shader);
+}
+void Control3D::Render(Shader* shader) {}
+void Control3D::PickNext(float xNew, float yNew) {}
+void Control3D::SetPickFb() {}
+bool Control3D::PickAt(float xOld, float yOld) {
+    PickFunc(xOld, yOld);
+    return true;
+}
+PixelInfo Control3D::BeginPickFunc(float xNew, float yNew) { return {}; }
+PixelInfo Control3D::PickFunc(float xNew, float yNew) { return {}; }
+void Control3D::Translate(glm::vec3 value) {
+    //transform.position += value;
+}
+// ********************************************** Vert *******************************************************
+void begin_3d_drag(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+    Dragger* v_this = (Dragger*)sender;
+    WindowBase* win = v_this->win;
+    Point2D<float> scaled = win->cursor_pos / win->m_size_scale;
+    v_this->DragOffset = scaled;
+}
+void end_3d_drag(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+    Dragger* v_this = (Dragger*)sender;
+    WindowBase* win = v_this->win;
+    Point2D<float> scaled = win->cursor_pos / win->m_size_scale;
+    v_this->Pos.Add("base_abs", v_this->Pos["draggin"] + v_this->Pos["position"]);
+    v_this->Pos.Set("draggin", {});
+    v_this->Pos.Set("position", {});
+}
+void do_3d_drag(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+    Dragger* v_this = (Dragger*)sender;
+    WindowBase* win = v_this->win;
+    Point2D<float> scaled = win->cursor_pos / win->m_size_scale;
+
+    v_this->Position(scaled);
+}
+int  Vert::Init() {
+
+    glm::vec3 data = transfrom->positions;
+    return 0;
+}
+void Vert::Render() {
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    glDrawArrays(GL_POINTS, 0, 1);
+}
+PixelInfo Vert::PickFunc(float xNew, float yNew) {
+
+    glm::vec3& vec = transfrom->positions;
+    auto cpos = rmtd::CurWin->cursor_pos;
+    auto scene = (Scene*)Parent;
+
+    return {};
+}
+
+
+// ********************************************** Triangle *******************************************************
+
+void Triangle::ComputeTBN() {
+    glm::vec3 edge1 = v2->transfrom->positions - v1->transfrom->positions;
+    glm::vec3 edge2 = v3->transfrom->positions - v1->transfrom->positions;
+    glm::vec2 deltaUV1 = v2_tex->positions - v1_tex->positions;
+    glm::vec2 deltaUV2 = v3_tex->positions - v1_tex->positions;
+
+    float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+    tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+    tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+    tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+    tangent = glm::normalize(tangent);
+    bitangent.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
+    bitangent.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
+    bitangent.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+    bitangent = glm::normalize(bitangent);
+    normal = glm::normalize(glm::cross(tangent, bitangent));
+
+}
+
+int  Triangle::Init() {
+    Control3D::Init();
+
+    return 0;
+}
+void Triangle::Render() {
+    this->m_shader->Use();
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 3);
+    glBindVertexArray(0);
+}
+PixelInfo Triangle::PickFunc(float xNew, float yNew) {
+    return {};
+}
+void UI::GenerateFields() {
+    Name = new Label(0, 0, 0, COMPONENT_TITLE_H);
+    Name->m_clear_color_base = { 0.2f,0.2f,0.2f,1.0f };
+    Name->m_colorPar = { 1,1,1,1 };
+    Name->m_scalePar = 1;
+    Name->Init();
+    Name->SetText("UI element:");
+    Fields.push_back(Name);
+}
+void TransformUI::GenerateFields() {
+    UI::GenerateFields();
+    Name->SetText("Transfrom:");
+    nfx = new NumberField("nfx");
+    nfx->Init();
+    nfx->Title->SetText(" X:");
+    nfy = new NumberField("nfy");
+    nfy->Init();
+    nfy->Title->SetText(" Y:");
+    nfz = new NumberField("nfz");
+    nfz->Init();
+    nfz->Title->SetText(" Z:");
+    Fields.push_back(nfx);
+    Fields.push_back(nfy);
+    Fields.push_back(nfz);
+    bmtd::SetBinding(x, &nfx->Number, BindingMode::Both);
+    bmtd::SetBinding(y, &nfy->Number, BindingMode::Both);
+    bmtd::SetBinding(z, &nfz->Number, BindingMode::Both);
+}
+void TransformUI::Rebind(Component* newHost) {
+    Transform* cast = (Transform*)newHost;
+    x->Remap(newHost, &cast->positions.x);
+    y->Remap(newHost, &cast->positions.y);
+    z->Remap(newHost, &cast->positions.z);
+}
+void TransformUI::Notify() {
+    x->BeginNotify();
+    y->BeginNotify();
+    z->BeginNotify();
+}
+void TexIndexUI::GenerateFields() {
+    UI::GenerateFields();
+    Name->SetText("Tex Index:");
+    Name->m_scalePar = 0.5f;
+    nfindex = new NumberField("nfindex");
+    nfindex->Init();
+    nfindex->Title->SetText("Index:");
+    nfindex->Title->m_scalePar = 0.4f;
+
+    Fields.push_back(nfindex);
+    bmtd::SetBinding(texindex, &nfindex->Number, BindingMode::Both);
+}
+void TexIndexUI::Rebind(Component* newHost) {
+    TexIndex* cast = (TexIndex*)newHost;
+    texindex->Remap(newHost, &cast->index);
+}
+void TexIndexUI::Notify() {
+    texindex->BeginNotify();
+}
+void TextureUI::GenerateFields() {
+    UI::GenerateFields();
+    nfu = new NumberField("nfu");
+    nfu->Init();
+    Name->SetText("Texture:");
+    nfu->Title->SetText(" U:");
+    nfu->NB->step = 0.05f;
+    nfv = new NumberField("nfv");
+    nfv->Init();
+    nfv->Title->SetText(" V:");
+    nfv->NB->step = 0.05f;
+    Fields.push_back(nfu);
+    Fields.push_back(nfv);
+    bmtd::SetBinding(u, &nfu->Number, BindingMode::Both);
+    bmtd::SetBinding(v, &nfv->Number, BindingMode::Both);
+}
+void TextureUI::Rebind(Component* newHost) {
+    Texture* cast = (Texture*)newHost;
+    u->Remap(newHost, &cast->positions.x);
+    v->Remap(newHost, &cast->positions.y);
+}
+void TextureUI::Notify() {
+    u->BeginNotify();
+    v->BeginNotify();
+}
+fields_t& MultiTexture::RaiseUI() {
+    return UIManager_RaiseUI(this);
+    for (auto tp : texPoints) {
+        //utils::AppendVec(FIELDS, tp->RaiseUI());
+    }
+    return FIELDS;
+}
+void MultiTexture::FreeUI() {
+    UIManager_FreeUI(this);
+    return;
+    for (auto tp : texPoints) {
+        tp->FreeUI();
+    }
+    FIELDS.clear();
+}
+void MultiTextureUI::GenerateFields() {
+    Label* lb = new Label(0, 0, 0, COMPONENT_TITLE_H);
+    lb->Init();
+    lb->SetText("Textures:");
+    int count = 0;
+    for (auto tp : texPoints) {
+       host->UIManager_RaiseUI(host);
+        tp.Name->SetText("Texture[" + std::to_string(count) + "]:");
+    }
+}
+void MultiTextureUI::Rebind(Component* newHost) {
+    MultiTexture* cast = (MultiTexture*)newHost;
+    int need = (int)cast->texPoints.size();
+    int has = (int)texPoints.size();
+    if (has > need)
+        for (int i = 0; i < need; i++) {
+            texPoints[i].Rebind(cast->texPoints[i]);
+        } else {
+            for (int i = 0; i < has; i++) {
+                texPoints[i].Rebind(cast->texPoints[i]);
+            }
+            for (int i = has; i < need; i++) {
+                cast->texPoints[i]->RaiseUI();
+            }
+        }
+}
+void MultiTextureUI::Notify() {
+    for (auto& tp : texPoints) {
+        tp.Notify();
+    }
+}
+
+
+// ********************************************** Camera *******************************************************
+
+void CameraUI::GenerateFields() {
+    UI::GenerateFields();
+    Name->SetText("Transfrom:");
+    nfx = new NumberField("nfx");
+    nfx->Init();
+    nfx->Title->SetText(" X:");
+    nfy = new NumberField("nfy");
+    nfy->Init();
+    nfy->Title->SetText(" Y:");
+    nfz = new NumberField("nfz");
+    nfz->Init();
+    nfz->Title->SetText(" Z:");
+    Fields.push_back(nfx);
+    Fields.push_back(nfy);
+    Fields.push_back(nfz);
+    bmtd::SetBinding(x, &nfx->Number, BindingMode::Both);
+    bmtd::SetBinding(y, &nfy->Number, BindingMode::Both);
+    bmtd::SetBinding(z, &nfz->Number, BindingMode::Both);
+}
+void CameraUI::Rebind(Component* newHost) {
+    Transform* cast = (Transform*)newHost;
+    x->Remap(newHost, &cast->positions.x);
+    y->Remap(newHost, &cast->positions.y);
+    z->Remap(newHost, &cast->positions.z);
+}
+void CameraUI::Notify() {
+    x->BeginNotify();
+    y->BeginNotify();
+    z->BeginNotify();
+}
+glm::mat4 Camera::GetProjectionMatrix() {
+    glm::mat4 projection;
+    switch (PMode) {
+        case ProjectionMode::Perspective:
+            projection = glm::perspective(glm::radians(Zoom), (float)*LogicalSize.X / (float)*LogicalSize.Y, 0.1f, 100.0f);
+            break;
+        case ProjectionMode::Orthogonal:
+            projection = glm::ortho(glm::radians(Zoom), (float)*LogicalSize.X / (float)*LogicalSize.Y, 0.1f, 100.0f);
+            break;
+        default:
+            projection = glm::identity<glm::mat4>();
+            break;
+    }
+    return projection;
+}
+const float pi = 3.14159265358979323846f;
+struct dataa {
+    glm::mat4 model;
+    glm::vec3 position;
+    glm::vec3 center;
+    glm::vec3 Front;
+    glm::vec3 Right;
+    glm::vec3 Up;
+    Point2D<float> cords;
+    float Pitch;
+    float Yaw;
+};
+
+std::vector<dataa> dataaa;
+void Camera::Pivot(glm::vec3 center, Point2D<float> cords) {
+    auto angle = cords * -9;
+    glm::mat4 model = glm::mat4(1);
+
+    transform->positions -= center;
+    model = glm::rotate(model, angle.X, Up);
+    model = glm::rotate(model, angle.Y, Right);
+    transform->positions = model * glm::vec4(transform->positions, 1.0f);
+    transform->positions += center;
+    //transform->UI->Notify();
+    Front = glm::normalize(center - transform->positions);
+    Right = glm::normalize(glm::cross(Front, WorldUp));
+    Up = glm::normalize(glm::cross(Right, Front));
+
+    updateAngles();
+    dataaa.push_back(
+        {
+            model,
+            transform->positions,
+            center,
+            Front,
+            Right,
+            Up,
+            cords,
+            Pitch,
+            Yaw
+        }
+    );
+}
+void Camera::ProcessMouseScroll(float yoffset) {
+    Zoom -= (float)yoffset;
+    if (Zoom < 1.0f)
+        Zoom = 1.0f;
+    if (Zoom > 45.0f)
+        Zoom = 45.0f;
+}
+void Camera::updateVectors() {
+    glm::vec3 front;
+    front.x = sin(glm::radians(Yaw))* cos(glm::radians(Pitch));
+    front.y = sin(glm::radians(Pitch));
+    front.z = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
+    
+    Front = glm::normalize(front);
+    Right = glm::normalize(glm::cross(Front, WorldUp));
+    Up = glm::normalize(glm::cross(Right, Front));
+}
+void Camera::updateAngles() {
+    Pitch = glm::degrees(glm::asin(Front.y));
+    //Yaw = glm::degrees(glm::atan(Front.z, Front.y));
+    glm::vec3 projected;
+    if (Front.y != 0){
+        projected = { Front.x, 0, Front.z };
+        projected = glm::normalize(projected);
+    }
+    else {
+        projected = Front;
+    }
+    Yaw = glm::degrees(glm::acos(projected.z));
+    if (projected.x < 0)
+        Yaw = -Yaw;
+}
+
+#pragma once
+#include "utils.h"
+#include "framebuf.h"
+#include "text_renderer.h"
+#include "binding_manager.h"
+#include "model.h"
+#include <iostream>
+#include <fstream>
+#include <chrono>
+#include <thread>
+#include "Debug.h"
+
+class IMouseEvents {
+public:
+	MouseClickEvent_E e_MouseClick;
+	MouseClickEvent_E e_MousePress;
+	MouseClickEvent_E e_MouseRelease;
+	MouseHoverEvent_E e_MouseHover;
+	IMouseEvents(DrawObj* owner) {
+		e_MouseClick = MouseClickEvent_E(&Dispatcher::MouseClickQ, owner);
+		e_MousePress = MouseClickEvent_E(&Dispatcher::MousePressQ, owner);
+		e_MouseRelease = MouseClickEvent_E(&Dispatcher::MouseReleaseQ, owner);
+		e_MouseHover = MouseHoverEvent_E(&Dispatcher::MouseReleaseQ, owner);
+	}
+};
+
+
+typedef Control control_pb_t;
+class Control : public Framebuf, public IMouseEvents {
+public:
+	Control(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Framebuf(name, xPos, yPos, xSize, ySize, GetPassShader()), IMouseEvents(this) {
+	}
+	Control(std::string name, glm::vec2 pos, glm::vec2 size)
+		: Control(name, pos.x, pos.y, size.x, size.y) {
+	}
+	Control(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Control("control_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	Control(glm::vec2 pos, glm::vec2 size)
+		: Control("control_" + std::to_string(GUID), pos.x, pos.y, size.x, size.y) {
+	}
+	virtual bool PickAt(float xOld, float yOld) override;
+	virtual PixelInfo PickFunc(float xNew, float yNew);
+	virtual void SetPickFb();
+
+	virtual void Prepare() override;
+	virtual void Render() override;
+	virtual uint RenderB(const Bounds& bn) override;
+	void Delete();
+	void InformChange(InformCB callback);
+	virtual void Update(float dt = 0);
+	virtual void ProcessInput(float dt, InputArgs_S& input) override;
+	virtual DrawObj2D* MemClone() { return new Control(*this); }
+};
+
+struct TextData_S {
+	int CurIdx = -1;
+	Point2D<int> CurPos;
+	std::vector<CharFramebuf*> Chars_v;
+	std::vector<Bounds> Bounds_v;
+	std::vector<Point2D<float>> Offs_v;
+	std::vector<int> Char_num_v;
+	Point2D<float> Offs_end;
+	int Row_num;
+	bool ToRender = true;
+	TextData_S() { NextRow(); }
+	void Add(Point2D<float> entry, CharFramebuf* chr) {
+		Chars_v.push_back(chr);
+		Offs_v.push_back(entry);
+		Char_num_v.back()++;
+	}
+	void NextRow() {
+		Char_num_v.push_back(0);
+		Row_num++;
+	}
+	int Size() { return (int)Chars_v.size(); }
+	int GetEnd() { return Size(); }
+	void ToStart() { CurIdx = -1; }
+	int ReadIndex = -1;
+	Point2D<float>& Next() {
+		ReadIndex++;
+		CurPos.X++;
+		if (Char_num_v.back() == CurPos.X)// num == pos
+		{
+			CurPos.X = 0;
+			CurPos.Y++;
+		}
+		return Offs_v[CurIdx];
+	}
+	void Clear() {
+		ReadIndex = -1; CurPos = { 0,0 }; Row_num = 0; Bounds_v.clear();
+		Chars_v.clear(); Offs_v.clear(); Char_num_v.clear(); Offs_end = { 0,0 };
+		NextRow();
+	}
+};
+
+class TextBase : public Control {
+public:
+	TextChangeEvent_E e_TextChange = TextChangeEvent_E(&Dispatcher::InvokeQ, this);
+	void OnTextChange();
+	TextRenderer* TextRend;
+	void SetTextRend(TextRenderer& textRend) { TextRend = &textRend; }
+	HorAlign HTextAlign = HorAlign::None;
+	VerAlign VTextAlign = VerAlign::None;
+	void TextAlign(HorAlign h, VerAlign v) { HTextAlign = h; VTextAlign = v; }
+	virtual void ResizeTexs(Point2D<float> size) override;
+	std::string m_text = "";
+	virtual void SetText(std::string text);
+	std::map<uchar, CharFramebuf*> Characters;
+	bool AutoNewLine = false;
+	TextData_S TextData;
+	float m_xPar = 5;
+	float m_yPar = 5;
+	float m_scalePar = 1;
+	float m_lr_margin = 0;
+	float m_ud_margin = 5;
+	int m_Font_size = 24;
+	glm::vec4 m_colorPar = glm::vec4(1, 1, 1, 1);
+	TextBase(std::string name, float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: Control(name, xPos, yPos, xSize, ySize), TextRend(nullptr) {
+		m_clear_color_base = { 0,0,0,0 };
+		TextRend = rmtd::s_TextRend;
+	}
+	TextBase(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: TextBase("textbase" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+
+	virtual void AddChar(const int& index, const uchar& chr);
+	virtual void RemoveChar(const int& index);
+	virtual void Render() override;
+	void RenderText();
+	void SetParameters(float x = 5, float y = 5, float scale = 1, glm::vec4* color_ptr = nullptr);
+
+	virtual DrawObj2D* MemClone() { return new TextBase(*this); }
+};
+
+class Label : public TextBase {
+public:
+	bool IsPressed = false;
+
+	Label(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: TextBase(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,0 };
+		m_scalePar = 0.5;
+		m_text = "label";
+	}
+	Label(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Label("lb" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;;
+	virtual PixelInfo PickFunc(float xNew, float yNew) override;
+	virtual void Prepare() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new Label(*this); }
+};
+
+class TextBox : public TextBase {
+public:
+	bool IsPressed = false;
+	int m_cursorPos = 0;
+	CharMap_S charMap;
+	virtual void SetText(std::string text) override { TextBase::SetText(text); OnTextChange(); }
+	virtual std::vector<int>& filter();
+
+	TextBox(std::string name, float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: TextBase(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0.2f,0.2f,0.2f,1 };
+		m_colorPar = { 0,0,0,1 };
+		m_cursorPos = (int)Childs.size();
+		tex_num = 2;
+		m_text = "text";
+	}
+	TextBox(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: TextBox("textbox" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;;
+	virtual void SetPickFb() override;
+	virtual PixelInfo PickFunc(float xNew, float yNew) override;
+	virtual void Prepare() override;
+	virtual void Render() override;
+	virtual void Update(float dt = 0) override;
+	virtual void ProcessInput(float dt, InputArgs_S& input) override;
+	virtual bool TryChangeActivity(bool value) override;
+	virtual DrawObj2D* MemClone() { return new TextBox(*this); }
+	bool Check(float dt, InputArgs_S& input, int i);
+
+};
+
+template<typename Towner>
+class Prop {
+public:
+	template<typename T>
+	class Wrap : public DepObj<T> {
+		virtual void OnSet(Towner* owner, T newValue) {
+			DepObj<T>::OnSet(owner, newValue);
+		}
+	};
+};
+
+class NumberBox : public TextBox {
+public:
+	virtual std::vector<int>& filter() override;
+	bool hasDot = false;
+	NumberChangeEvent_E e_NumberChange = NumberChangeEvent_E(&Dispatcher::InvokeQ, this);
+	void OnNumberChange();
+	bool IsDecimal = true;
+	class NB_Number : public DepObj<float> {
+		typedef DepObj<float> base_t;
+		using base_t::base_t;
+		void OnSet(void* owner, float newValue) override {
+			NumberBox* this_v = (NumberBox*)owner;
+			this_v->old_number = Get();
+			*value = newValue;
+			std::string str;
+			if (this_v->IsDecimal) {
+				str = utils::to_string(newValue);
+				if ((int)newValue == newValue)
+					this_v->hasDot = false;
+				else
+					this_v->hasDot = true;
+			} else {
+				str = { std::to_string((int)newValue) };
+
+			}
+
+			this_v->TextBase::SetText(str);
+			this_v->OnNumberChange();
+		}
+	};
+	NB_Number Number = NB_Number(this);
+	float old_number = 0;
+	virtual void SetText(std::string text) override { Number.Set(utl::safe_stof(text)); }
+	virtual void SetNumber(float num) { Number.Set(num); }
+	NumberBox(std::string name, float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: TextBox(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0.2f,0.2f,0.2f,1 };
+		m_colorPar = { 0,0,0,1 };
+		m_cursorPos = (int)Childs.size();
+		tex_num = 2;
+		m_text = "0";
+	}
+	NumberBox(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: NumberBox("numberbox" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+
+	virtual int Init() override;;
+	virtual void ProcessInput(float dt, InputArgs_S& input) override;
+	virtual DrawObj2D* MemClone() { return new TextBox(*this); }
+};
+
+
+class IntNumberBox : public TextBox {
+public:
+	virtual std::vector<int>& filter() override;
+	NumberChangeEvent_E e_NumberChange = NumberChangeEvent_E(&Dispatcher::InvokeQ, this);
+	void OnNumberChange();
+	class NB_Number : public DepObj<int> {
+		typedef DepObj<int> base_t;
+		using base_t::base_t;
+		void OnSet(void* owner, int newValue) override {
+			NumberBox* this_v = (NumberBox*)owner;
+			*value = newValue;
+			std::string str = utils::to_string(newValue);
+			this_v->TextBase::SetText(str);
+			this_v->OnNumberChange();
+		}
+	};
+	NB_Number Number = NB_Number(this);
+	int old_number = 0;
+	virtual void SetText(std::string text) override { Number.Set(utl::safe_stoi(text)); }
+	virtual void SetNumber(int num) { Number.Set(num); }
+	IntNumberBox(std::string name, float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: TextBox(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0.2f,0.2f,0.2f,1 };
+		m_colorPar = { 0,0,0,1 };
+		m_cursorPos = (int)Childs.size();
+		tex_num = 2;
+		m_text = "0";
+	}
+	IntNumberBox(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: IntNumberBox("IntNumberBox" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+
+	virtual int Init() override;;
+	virtual void ProcessInput(float dt, InputArgs_S& input) override;
+	virtual DrawObj2D* MemClone() { return new TextBox(*this); }
+};
+
+
+
+class Clicker : public Control {
+public:
+	bool IsPressed = false;
+	MouseClickData* btn_up_cb = nullptr;
+	Clicker(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Control(name, xPos, yPos, xSize, ySize) {
+	}
+	Clicker(std::string name, glm::vec2 pos, glm::vec2 size)
+		: Clicker(name, pos.x, pos.y, size.x, size.y) {
+	}
+	Clicker(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Clicker("Clicker_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	Clicker(glm::vec2 pos, glm::vec2 size)
+		: Clicker("Clicker_" + std::to_string(GUID), pos.x, pos.y, size.x, size.y) {
+	}
+	virtual int Init() override;;
+	virtual PixelInfo PickFunc(float xNew, float yNew) override;
+	virtual void Prepare() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new Clicker(*this); }
+public:
+	static void release_callback(sender_ptr sender, MouseClickEventArgs* e, params_t params) {
+		Clicker& b = *(Clicker*)sender;
+		b.IsPressed = false;
+		b.OnChange();
+	}
+};
+
+class Button : public Clicker {
+public:
+
+	Label* Content = nullptr;
+	void SetTextRend(TextRenderer& textRend) { Content->SetTextRend(textRend); }
+	void SetText(std::string text) { Content->SetText(text); }
+	Button(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Clicker(name, xPos, yPos, xSize, ySize) {
+	}
+	Button(std::string name, glm::vec2 pos, glm::vec2 size)
+		: Button(name, pos.x, pos.y, size.x, size.y) {
+	}
+	Button(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Button("Button_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	Button(glm::vec2 pos, glm::vec2 size)
+		: Button("Button_" + std::to_string(GUID), pos.x, pos.y, size.x, size.y) {
+	}
+	virtual int Init() override;;
+	virtual void Prepare() override;
+	virtual DrawObj2D* MemClone() { return new Button(*this); }
+};
+
+class CheckBox : public Clicker {
+public:
+	DepObj<bool> IsEnabled = new DepObj<bool>(this);
+	Label* Content = nullptr;
+	CheckBoxEvent_E e_Toggle = CheckBoxEvent_E(&dpch::InvokeQ, this);
+	void SetTextRend(TextRenderer& textRend) { Content->SetTextRend(textRend); }
+	void SetText(std::string text) { Content->SetText(text); }
+	void Toggle();
+	void OnToggle();
+	PixelInfo PickFunc(float xNew, float yNew) override;
+	CheckBox(std::string name, float xPos = 0, float yPos = 0, float xSize = 25, float ySize = 25)
+		: Clicker(name, xPos, yPos, xSize, ySize) {
+	}
+	CheckBox(std::string name, glm::vec2 pos, glm::vec2 size)
+		: CheckBox(name, pos.x, pos.y, size.x, size.y) {
+	}
+	CheckBox(float xPos = 0, float yPos = 0, float xSize = 25, float ySize = 25)
+		: CheckBox("CheckBox_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	CheckBox(glm::vec2 pos, glm::vec2 size)
+		: CheckBox("CheckBox_" + std::to_string(GUID), pos.x, pos.y, size.x, size.y) {
+	}
+	virtual int Init() override;;
+	virtual void Prepare() override;
+
+	virtual DrawObj2D* MemClone() { return new CheckBox(*this); }
+};
+
+class NumBox1 : public Control {
+public:
+	bool IsPressed = false;
+	//int m_cursorPos = 0;
+	float m_count = 0;
+	NumberBox* NB = nullptr;
+	Button* PB = nullptr;
+	Button* MB = nullptr;
+	TextRenderer* TextRend = nullptr;
+	float step = 1;
+
+	void ChangeValue(float change) { NB->SetNumber(NB->Number.Get() + change); }
+	void SetValue(float count) { m_count = count; NB->SetText(std::to_string(m_count)); }
+	void SetTextRend(TextRenderer& textRend) { TextRend = &textRend; }
+
+	NumBox1(std::string name, float count, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Control(name, xPos, yPos, xSize, ySize), m_count(count) {
+	}
+	NumBox1(float count, float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: NumBox1("numberbox" + std::to_string(GUID), count, xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual PixelInfo PickFunc(float xNew, float yNew) override;
+	virtual void Prepare() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new NumBox1(*this); }
+};
+
+class Dragger;
+
+class Placement_S {
+public:
+	Point2D<float> Val{};
+	Point2D<float> Scale{};
+	Point2D<float> Margin_LT{};
+	Point2D<float> Margin_RB{};
+	Dragger* m_owner;
+	Placement_S(Dragger* owner) : m_owner(owner) {}
+	Point2D<float> Get() { return Val * Scale; }
+	void Place();
+	void Compute();
+};
+
+class Dragger : public Clicker {
+public:
+
+	virtual void ComputeBounds() override;
+	bool HDrag = true;
+	bool VDrag = true;
+	WindowBase* win = rmtd::CurWin;
+	Point2D<float> DragOffset{};
+	Point2D<float> StartPos{};
+	Placement_S Placement = Placement_S(this);
+	void ComputePlacement();
+	void Move(Point2D<float> change);
+	//using Clicker::Clicker;
+	Dragger(std::string name, float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: Clicker(name, xPos, yPos, xSize, ySize) {
+	}
+	Dragger(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: Dragger("dragger" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	void Position(Point2D<float> newPos);
+	//virtual PixelInfo PickFunc(float xNew, float yNew) override;
+	virtual void Prepare() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new Dragger(*this); }
+};
+
+enum class Orientation_S {
+	NONE,
+	Horizontal,
+	Vertical,
+};
+
+class ScrollBar : public Control {
+public:
+
+	bool HScroll = true;
+	bool VScroll = true;
+	float bar_size = 10;
+	Dragger* DRG = nullptr;
+	Button* PB = nullptr;
+	Button* MB = nullptr;
+	Point2D<float> change{ 10.0f,10.0f };
+	Point2D<float> scroll_pos{ 0.f,0.f };
+	Point2D<float> OldVal{};
+	Point2D<float> LValC{};
+	Point2D<float> GetScrollVal() { return DRG->Placement.Val; }
+	Point2D<float> GetLastValChange() { return LValC; }
+	Orientation_S Orientation = Orientation_S::Horizontal;
+	void SetOrientation(Orientation_S ori);
+
+	ScrollEvent_E e_Scroll = ScrollEvent_E(&Dispatcher::ScrollQ, this);
+
+	ScrollBar(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Control(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	ScrollBar(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: ScrollBar("scrollbar" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	//virtual PixelInfo PickFunc(float xNew, float yNew) override;
+	void OnScroll();// { e_Scroll.Invoke(); };
+	virtual void Prepare() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new ScrollBar(*this); }
+};
+
+class ViewSpace : public Control {
+public:
+
+	static int indexer[8];
+	Bounds m_texCords = { 0,0,1,1 };
+	Bounds m_texCords_old = { 0,0,1,1 };
+	Point2D<float> SpaceSize{ All_HEIGHT, All_WIDTH };
+	void SetSpaceSize(Point2D<float> newSize);
+	Point2D<float> SPosRel{ 0, 0 };
+	Point2D<float> ViewSizeRatio{};
+	Control* Content = nullptr;
+	uint VAO2, VBO;
+	int data_size = 0;
+	float data[20];
+	virtual Point2D<float> IntendedSize() override;
+	virtual void ResizeTexs(Point2D<float> size) override;
+	virtual void SetLinked() override;
+	virtual void Link(Framebuf* parent) override;
+	virtual void ComputeBounds();
+	void UpdateTex();
+	void UpdateCords();
+	void UpdateBuffer(bool first, bool second);
+	void MoveView(Point2D<float> nvc, Point2D<float> factor);
+
+	ViewSpace(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Control(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	ViewSpace(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: ViewSpace("viewspace" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+
+	virtual int Init() override;
+	virtual bool PickAt(float x, float y) override;
+	//virtual PixelInfo PickFunc(float xNew, float yNew) override;
+	//virtual void Prepare() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new ViewSpace(*this); }
+
+};
+
+class StackPanel : public Control {
+public:
+	void Measure();
+	void Arrange();
+	virtual void OnChange() override;
+	static Point2D<float> dummy;
+	float MeasuredSize = 0;
+	Orientation_S Orientation = Orientation_S::Vertical;
+	virtual void BeginLink();
+	virtual void SetLinked() override;
+	virtual void LinkChild(DrawObj2D* child) override;
+	virtual void AdjustChild(DrawObj2D* child);
+
+	StackPanel(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Control(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	StackPanel(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: StackPanel("StackPanel" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+
+	virtual int Init() override;
+	//virtual PixelInfo PickFunc(float xNew, float yNew) override;
+	virtual void Prepare() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new StackPanel(*this); }
+
+};
+
+class Scrollable : public Control {
+public:
+	Bounds m_texCords;
+
+	bool HScroll = true;
+	bool VScroll = true;
+	float bar_size = 10;
+	ViewSpace* VS = nullptr;
+	void SetViewSpace(ViewSpace* vs);
+	void SetProxy(Control* proxy_p);
+	Control* GetProxy() { return Proxy; }
+	ScrollBar* RSB = nullptr;
+	ScrollBar* BSB = nullptr;
+	void MoveView();
+	virtual void Link(Framebuf* parent) override;
+	virtual void Unlink() override;
+
+	Scrollable(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Control(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	Scrollable(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: Scrollable("scrollable" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+
+	virtual DrawObj2D* ProxyAddChild(DrawObj2D* dObj);
+	virtual DrawObj2D* ProxyAddChilds(std::vector<DrawObj2D*> dObjs);
+	void ProxyClearChilds();
+	virtual int Init() override;
+	//virtual PixelInfo PickFunc(float xNew, float yNew) override;
+	//virtual void Prepare() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new Scrollable(*this); }
+private:
+	Control* Proxy = this;
+};
+
+class Movable : public Dragger {
+public:
+	float bar_size = 20;
+	Control* Content = nullptr;
+	void MoveView();
+	void SetContent(Control* cont);
+
+	Movable(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Dragger(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	Movable(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: Movable("movable" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new Movable(*this); }
+
+};
+
+class TexDisplay : public Control {
+	TextRenderer* TextRend = nullptr;
+	DrawObj2D* Target = nullptr;
+	Framebuf* DP = nullptr;
+	void SetTarget(uint guid);
+
+	void SetValue(float count) { NB1->SetValue(count); }
+	void SetTextRend(TextRenderer& textRend) { NB1->SetTextRend(textRend); }
+	NumBox1* NB1 = nullptr;
+	TexDisplay(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Control(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	TexDisplay(float xPos = 0, float yPos = 0, float xSize = 40, float ySize = 20)
+		: TexDisplay("TexDisplay_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new TexDisplay(*this); }
+};
+
+
+class PropertyFiled : public Control {
+public:
+	Label* Title = nullptr; //field label
+
+	PropertyFiled(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: Control(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	PropertyFiled(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: PropertyFiled("PropertyFiled_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new PropertyFiled(*this); }
+};
+
+class StackFiled : public StackPanel {
+public:
+	Control* Header = nullptr;
+	Label* Title = nullptr; //field label
+
+	StackFiled(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: StackPanel(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	StackFiled(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: StackFiled("PropertyFiled_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new StackFiled(*this); }
+};
+
+class TextField : public PropertyFiled {
+public:
+
+	TextField(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: PropertyFiled(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	TextField(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: TextField("TextField_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new TextField(*this); }
+};
+
+class NumberField : public PropertyFiled {
+public:
+	DepObj<float> Number = DepObj<float>(this);
+	NumBox1* NB = nullptr;
+
+	NumberField(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: PropertyFiled(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	NumberField(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: NumberField("NumberField_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new NumberField(*this); }
+};
+
+class CheckBoxField : public PropertyFiled {
+public:
+
+	CheckBox* CB = nullptr;
+	CheckBoxField(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: PropertyFiled(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	CheckBoxField(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: CheckBoxField("CheckBoxField_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual void Render() override;
+	virtual DrawObj2D* MemClone() { return new CheckBoxField(*this); }
+};
+
+class CollapsableField : public StackFiled {
+public:
+	CheckBox* Collapser = nullptr;
+	StackPanel* Content = nullptr;
+	CollapsableField(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: StackFiled(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	CollapsableField(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: CollapsableField("CollapsableField_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual void Prepare() override;
+	virtual DrawObj2D* MemClone() { return new CollapsableField(*this); }
+};
+
+class TextureField : public StackFiled {
+public:
+	class TextureID_DO : public DepObj<float> {
+		typedef DepObj<float> base_t;
+		using base_t::base_t;
+		void OnSet(void* owner, float newVal) override {
+			TextureField* this_v = (TextureField*)owner;
+			int intVal = (int)newVal;
+			int size = (int)this_v->texCol->size();
+			if (newVal >= 0 && newVal < size) {
+				this_v->texBuf->Texs[0] = this_v->texCol[0][intVal];
+			}
+		}
+	};
+	std::vector<Texture2D*>* texCol = nullptr;
+	TextureID_DO texID = TextureID_DO(this);
+	NumBox1* NB = nullptr;
+	Texbuf* texBuf = nullptr;
+
+	TextureField(std::string name, float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: StackFiled(name, xPos, yPos, xSize, ySize) {
+		m_clear_color_base = { 0,0,0,1 };
+	}
+	TextureField(float xPos = 0, float yPos = 0, float xSize = 0, float ySize = 0)
+		: TextureField("TextureField_" + std::to_string(GUID), xPos, yPos, xSize, ySize) {
+	}
+	virtual int Init() override;
+	virtual DrawObj2D* MemClone() { return new TextureField(*this); }
+};
+
+class AdjustTextureField : public TextureField {
+public:
+	NumBox1* NB_Intens = nullptr;
+	CheckBoxField* CBF_Enable = nullptr;
+	float* intensity = nullptr;
+	using TextureField::TextureField;
+	virtual int Init() override;
+	virtual DrawObj2D* MemClone() { return new AdjustTextureField(*this); }
+};
+
+class DrawObj3D : public DrawObj {
+public:
+
+	DrawObj3D(std::string name) : DrawObj(name) {};
+	DrawObj3D() : DrawObj3D("GUID_" + std::to_string(GUID)) {}
+
+	virtual int Init() = 0;
+	virtual void Update(float dt) = 0;
+	virtual void ProcessInput(float dt, InputArgs_S& input) = 0;
+	virtual void Render() = 0;
+	virtual void Render(Shader* shader) = 0;
+
+	//virtual void PickNext(float xNew, float yNew);
+	virtual void SetPickFb() = 0;
+	virtual bool PickAt(float xOld, float yOld) = 0;
+	//virtual PixelInfo BeginPickFunc(float xNew, float yNew);
+	virtual PixelInfo PickFunc(float xNew, float yNew) = 0;
+
+	/*
+	Event_E e_PreRend = Event_E(&Dispatcher::InvokeQ, this);
+	Event_E e_Display = Event_E(&Dispatcher::InvokeQ, this);
+	Event_E e_Update = Event_E(&Dispatcher::UpdateQ, this);
+	*/
+};
+
+typedef std::vector<DrawObj2D*> fields_t;
+class UI {
+public:
+	Label* Name = nullptr;
+	fields_t Fields;
+	virtual void GenerateFields();
+	virtual void Rebind(Component* newHost) = 0;
+	virtual void Notify() = 0;
+};
+
+class Component;
+class Camera;
+template<typename T>
+class UIManage {
+	static_assert(std::is_base_of<UI, T>::value, "T must inherit from UI");
+public:
+	static std::map<Component*, T*> ActiveUIs;
+	static std::vector<T*> InactiveUIs;
+	// cast je this klase naslednice
+	fields_t& UIManager_RaiseUI(Component* cast) {
+		if (InactiveUIs.size() > 0) {
+			auto UI = InactiveUIs.back();
+			UI->Rebind(cast);
+			InactiveUIs.pop_back();
+			ActiveUIs.insert({ cast,UI });
+			return UI->Fields;
+		} else {
+			auto newUI = new T();
+			newUI->GenerateFields();
+			newUI->Rebind(cast);
+			ActiveUIs.insert({ cast,newUI });
+			return newUI->Fields;
+		}
+	}
+	void UIManager_FreeUI(Component* cast) {
+		if (ActiveUIs.count(cast) > 0) {
+			auto freedUI = ActiveUIs.find(cast);
+			InactiveUIs.push_back((*freedUI).second);
+			ActiveUIs.erase(freedUI);
+		}
+	}
+	void UIManager_Notify(Component* cast) {
+		auto iter = ActiveUIs.find(cast);
+		if (iter != ActiveUIs.end())
+			iter->second->Notify();
+	}
+};
+
+class TextureUI : public UI {
+public:
+	class Texture_Cord : public DepObj<float> {
+		typedef DepObj<float> base_t;
+		using base_t::base_t;
+		void OnSet(void* owner, float newVal) override {
+			if (newVal > 1 || newVal < 0) {
+				newVal = std::max(std::min(newVal, 1.0f), 0.0f);
+				*value = newVal;
+				BeginNotify();
+			}
+		}
+	};
+	NumberField* nfu = nullptr;
+	NumberField* nfv = nullptr;
+	Texture_Cord* u = new Texture_Cord();
+	Texture_Cord* v = new Texture_Cord();
+	void GenerateFields() override;
+	void Rebind(Component* newHost) override;
+	void Notify() override;
+};
+
+class TexIndexUI : public UI {
+public:
+	class Index_DO : public DepObj<int> {
+		typedef DepObj<int> base_t;
+		using base_t::base_t;
+		void OnSet(void* owner, int newVal) override {
+			if (newVal < 0) {
+				newVal = 0;
+				*value = newVal;
+				BeginNotify();
+			}
+		}
+	};
+	NumberField* nfindex = nullptr;
+	Index_DO* texindex = new Index_DO();
+	void GenerateFields() override;
+	void Rebind(Component* newHost) override;
+	void Notify() override;
+};
+
+class MultiTextureUI : public UI {
+public:
+	MultiTexture* host;
+	class TPsSize : public DepObj<int> {
+		typedef DepObj<int> base_t;
+		using base_t::base_t;
+		void OnSet(void* owner, int newVal) override {
+		}
+	};
+	TPsSize* tp_size = new TPsSize();
+	std::vector<TextureUI> texPoints;
+	void GenerateFields() override;
+	void Rebind(Component* newHost) override;
+	void Notify() override;
+};
+class TransformUI : public UI {
+public:
+	class Transform_Cord : public DepObj<float> {
+		typedef DepObj<float> base_t;
+		using base_t::base_t;
+		void OnSet(void* owner, float newVal) override {
+			TransformUI* this_v = (TransformUI*)owner;
+			//v_this->Parent.Changed = true;
+		}
+	};
+	TransformUI* UI = nullptr;
+	NumberField* nfx = nullptr;
+	NumberField* nfy = nullptr;
+	NumberField* nfz = nullptr;
+	Transform_Cord* x = new Transform_Cord();
+	Transform_Cord* y = new Transform_Cord();
+	Transform_Cord* z = new Transform_Cord();
+	void GenerateFields() override;
+	void Rebind(Component* newHost) override;
+	void Notify() override;
+};
+
+class Component {
+public:
+	virtual void Notify() = 0;
+
+	virtual fields_t& RaiseUI() = 0;
+	virtual void FreeUI() = 0;
+};
+
+class TexIndex : public Component, public UIManage<TexIndexUI> {
+public:
+	int index;
+	TexIndexUI* UI = nullptr;
+
+	void Notify() override { UIManager_Notify(this); }
+	virtual fields_t& RaiseUI() override { return UIManager_RaiseUI(this); }
+	virtual void FreeUI() override { UIManager_FreeUI(this); }
+};
+
+class Transform : public Component, public UIManage<TransformUI> {
+public:
+	glm::vec3 positions{};
+	TransformUI* UI = nullptr;
+
+	void Notify() override { UIManager_Notify(this); }
+	virtual fields_t& RaiseUI() override { return UIManager_RaiseUI(this); }
+	virtual void FreeUI() override { UIManager_FreeUI(this); }
+};
+
+class Texture : public Component, public UIManage<TextureUI> {
+public:
+	glm::vec2 positions{ 0, 0 };
+	Texture(float x, float y) {
+		positions = { x,y };
+	}
+	void Notify() override { UIManager_Notify(this); }
+	virtual fields_t& RaiseUI() override { return UIManager_RaiseUI(this); }
+	virtual void FreeUI() override { UIManager_FreeUI(this); }
+};
+
+class MultiTexture : public Component, public UIManage<MultiTextureUI> {
+public:
+	std::vector<Texture*> texPoints;
+	fields_t FIELDS;
+
+	void Notify() override { UIManager_Notify(this); }
+	virtual fields_t& RaiseUI() override;
+	virtual void FreeUI() override;
+};
+
+class Control3D : public DrawObj3D, public IMouseEvents {
+public:
+	Transform* transfrom = new Transform();
+	std::vector<Component*> InspCompon;
+	virtual void RaiseInspector();
+	Control3D(std::string name) : DrawObj3D(name), IMouseEvents(this) {
+		InspCompon.push_back(transfrom);
+	};
+	Control3D() : Control3D("GUID_" + std::to_string(GUID)) {}
+	virtual int Init() override;
+	virtual void Update(float dt) override;
+	virtual void ProcessInput(float dt, InputArgs_S& input) override;
+	virtual void Render() override;
+	virtual void Render(Shader* shader) override;
+
+	virtual void PickNext(float xNew, float yNew);
+	virtual void SetPickFb() override;
+	virtual bool PickAt(float xOld, float yOld) override;
+	virtual PixelInfo BeginPickFunc(float xNew, float yNew);
+	virtual PixelInfo PickFunc(float xNew, float yNew);
+
+	Event_E e_PreRend = Event_E(&Dispatcher::InvokeQ, this);
+	Event_E e_Display = Event_E(&Dispatcher::InvokeQ, this);
+	Event_E e_Update = Event_E(&Dispatcher::UpdateQ, this);
+
+	void Translate(glm::vec3 value);
+
+	virtual std::string GetType() { static std::string ret = "Control3D"; return ret; }
+	virtual DrawObj3D* MemClone() { return new Control3D(*this); }
+};
+
+
+class Vert : public Control3D {
+public:
+	std::vector<Component> components;
+	uint VAO = 0;
+	uint VBO = 0;
+	Vert() {
+		m_shader = rmtd::GetShader("allpoints");
+	}
+	Vert(glm::vec3 pos) {
+		transfrom->positions = pos;
+		m_shader = rmtd::GetShader("allpoints");
+	}
+	virtual int Init() override;
+	virtual void Render() override;
+	PixelInfo PickFunc(float xNew, float yNew);
+	virtual std::string GetType() { static std::string ret = "Vert"; return ret; }
+};
+
+class Triangle : public Control3D {
+public:
+	Vert* v1, * v2, * v3;
+	Texture* v1_tex = new Texture(0, 0);
+	Texture* v2_tex = new Texture(0, 1);
+	Texture* v3_tex = new Texture(1, 1);
+	glm::vec3 tangent;
+	glm::vec3 bitangent;
+	glm::vec3 normal;
+	MultiTexture* texture = new MultiTexture();
+	uint VAO = 0, VBO = 0;
+	Triangle(Vert* p_v1, Vert* p_v2, Vert* p_v3) : v1(p_v1), v2(p_v2), v3(p_v3) {
+		ComputeTBN();
+		InitInspector();
+	}
+	typedef std::vector<Vert*>::const_iterator vert_iter;
+	Triangle(vert_iter begin) {
+		v1 = *begin; begin++;
+		v2 = *begin; begin++;
+		v3 = *begin;
+		ComputeTBN();
+		InitInspector();
+	}
+	virtual void InitInspector() {
+		texture->texPoints.push_back(v1_tex);
+		texture->texPoints.push_back(v2_tex);
+		texture->texPoints.push_back(v3_tex);
+		InspCompon.push_back(texture);
+
+		//InspCompon.push_back(v1_tex);
+		//InspCompon.push_back(v2_tex);
+		//InspCompon.push_back(v3_tex);
+	}
+	void ComputeTBN();
+	virtual int Init() override;
+	virtual void Render() override;
+	PixelInfo PickFunc(float xNew, float yNew);
+	virtual std::string GetType() { static std::string ret = "Triangle"; return ret; }
+};
+
+class Object : public Control3D {
+public:
+	std::vector<Triangle> tris;
+
+};
+
+
+
+enum class Camera_Movement {
+	NONE,
+	FORWARD,
+	BACKWARD,
+	LEFT,
+	RIGHT
+};
+enum class ProjectionMode {
+	Perspective,
+	Orthogonal,
+};
+class CameraUI : public UI {
+public:
+	class Transform_Cord : public DepObj<float> {
+		typedef DepObj<float> base_t;
+		using base_t::base_t;
+		void OnSet(void* owner, float newVal) override {
+			TransformUI* this_v = (TransformUI*)owner;
+			//v_this->Parent.Changed = true;
+		}
+	};
+	NumberField* nfx = nullptr;
+	NumberField* nfy = nullptr;
+	NumberField* nfz = nullptr;
+	Transform_Cord* x = new Transform_Cord();
+	Transform_Cord* y = new Transform_Cord();
+	Transform_Cord* z = new Transform_Cord();
+	void GenerateFields() override;
+	void Rebind(Component* newHost) override;
+	void Notify() override;
+};
+const float SPEED = 2.5f, SENSITIVITY = 0.1f, ZOOM = 45.0f;
+class Camera : public Component, public UIManage<CameraUI> {
+public:
+	void Notify() override { UIManager_Notify(this); }
+	virtual fields_t& RaiseUI() override { return UIManager_RaiseUI(this); }
+	virtual void FreeUI() override { UIManager_FreeUI(this); }
+
+	Transform* transform = new Transform();
+	glm::vec3 Front, Up, Right, WorldUp;
+	Point2D<float*> LogicalSize;
+	float Yaw, Pitch, MovementSpeed, MouseSensitivity, Zoom;
+	bool firstMouse = true;
+	ProjectionMode PMode = ProjectionMode::Perspective;
+	TransformUI* trasfromUI;
+	Camera(glm::vec3 position = glm::vec3(0.0f, 3.0f, 5.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3 front = {0,0,-1})
+		: Front(front), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM) {
+		transform->positions = position;
+		WorldUp = up;
+		updateAngles();
+		updateVectors();
+	}
+	glm::mat4 GetViewMatrix() {
+		return glm::lookAt(transform->positions, transform->positions + Front, Up);
+	}
+	glm::mat4 GetProjectionMatrix();
+	void ProcessKeyboard(Camera_Movement direction, float deltaTime) {
+		float velocity = MovementSpeed * deltaTime;
+		if (direction == Camera_Movement::FORWARD)
+			transform->positions += Front * velocity;
+		if (direction == Camera_Movement::BACKWARD)
+			transform->positions -= Front * velocity;
+		if (direction == Camera_Movement::LEFT)
+			transform->positions -= Right * velocity;
+		if (direction == Camera_Movement::RIGHT)
+			transform->positions += Right * velocity;
+		transform->UI->Notify();
+	}
+	void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true) {
+		xoffset *= MouseSensitivity;
+		yoffset *= MouseSensitivity;
+		Yaw -= xoffset;
+		Pitch -= yoffset;
+		if (constrainPitch) {
+			if (Pitch > 89.0f)
+				Pitch = 89.0f;
+			if (Pitch < -89.0f)
+				Pitch = -89.0f;
+		}
+		updateVectors();
+	}
+	void Pivot(glm::vec3 center, Point2D<float> cords);
+	void ProcessMouseScroll(float yoffset);
+private:
+	void updateVectors();
+	void updateAngles();
+
+};

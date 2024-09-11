@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  
+  <Type Name="::Framebuf">
+    <DisplayString>{{ size={DataEnd_ - DataBegin_}, capacity={MemEnd_ - DataBegin_} }}</DisplayString>
+    <Expand>
+      <Item Name="[Childs]" ExcludeView="simple">Childs</Item>
+    </Expand>
+  </Type>
+  
+</AutoVisualizer>

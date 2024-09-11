@@ -1,0 +1,347 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Resource Files\shaders">
+      <UniqueIdentifier>{f97996f0-1867-4388-8dc9-51faebf68182}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\textures">
+      <UniqueIdentifier>{815f9ce5-20c4-4bb6-b2e2-dc1f22b93443}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External Files">
+      <UniqueIdentifier>{c47fc868-71af-4850-a664-f2b459105bdd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ostalo">
+      <UniqueIdentifier>{9d41bf45-f420-4bf8-abc0-2ed9d35c9aac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\gbuffer">
+      <UniqueIdentifier>{f92b74c7-02e8-453e-982f-379cdfb273ac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\util">
+      <UniqueIdentifier>{a099b735-54e8-402e-9500-d0acf0077eed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\controls">
+      <UniqueIdentifier>{ba4f4a82-0767-4658-9e9a-e5408ad39c1a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\util\text">
+      <UniqueIdentifier>{1ea67688-ca8e-49a4-9c79-f7af1c73ddce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\util\pass">
+      <UniqueIdentifier>{ecc8db58-f52c-46d8-a00c-6580a1e20305}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\util\rest">
+      <UniqueIdentifier>{877e270b-aa7a-47e2-b788-bb5f9f07fa54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\util\pass\3D">
+      <UniqueIdentifier>{c6de6330-14f6-4909-abea-5ea898927591}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\light">
+      <UniqueIdentifier>{4e1d5f1d-6b4e-40fe-a55e-a1bfbd455e96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\scene">
+      <UniqueIdentifier>{792e7b95-8752-4c38-aa8c-491ed1c859ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\scene\model">
+      <UniqueIdentifier>{0bb0cee4-3cb3-46ed-ab1c-c917b79dace9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\scene\points">
+      <UniqueIdentifier>{1f32f934-aea3-4c4b-9afd-e7e8c1065b3a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\util\rest\notnow">
+      <UniqueIdentifier>{61018cec-7834-46de-aab7-c762bea15176}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\picking">
+      <UniqueIdentifier>{792036b5-b65d-479c-ad66-2d7aebc93e94}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\scene\grids">
+      <UniqueIdentifier>{8abb84c5-ca0f-4e01-a4f0-44c271959a0c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="resources\shaders\gbuf\geometry_pass.frag">
+      <Filter>Resource Files\shaders\gbuffer</Filter>
+    </None>
+    <None Include="resources\shaders\gbuf\geometry_pass.vect">
+      <Filter>Resource Files\shaders\gbuffer</Filter>
+    </None>
+    <None Include="resources\shaders\gbuf\light_pass.frag">
+      <Filter>Resource Files\shaders\gbuffer</Filter>
+    </None>
+    <None Include="resources\shaders\gbuf\light_pass.vect">
+      <Filter>Resource Files\shaders\gbuffer</Filter>
+    </None>
+    <None Include="resources\shaders\gbuf\light_pass_box.frag">
+      <Filter>Resource Files\shaders\gbuffer</Filter>
+    </None>
+    <None Include="resources\shaders\gbuf\light_pass_box.vect">
+      <Filter>Resource Files\shaders\gbuffer</Filter>
+    </None>
+    <None Include="resources\shaders\text_2d.vect">
+      <Filter>Resource Files\shaders\util\text</Filter>
+    </None>
+    <None Include="resources\shaders\text_2d.frag">
+      <Filter>Resource Files\shaders\util\text</Filter>
+    </None>
+    <None Include="resources\shaders\text_3d.frag">
+      <Filter>Resource Files\shaders\util\text</Filter>
+    </None>
+    <None Include="resources\shaders\text_3d.vect">
+      <Filter>Resource Files\shaders\util\text</Filter>
+    </None>
+    <None Include="resources\shaders\pass_tex.vect">
+      <Filter>Resource Files\shaders\util\pass</Filter>
+    </None>
+    <None Include="resources\shaders\pass_col.frag">
+      <Filter>Resource Files\shaders\util\pass</Filter>
+    </None>
+    <None Include="resources\shaders\pass_col.vect">
+      <Filter>Resource Files\shaders\util\pass</Filter>
+    </None>
+    <None Include="resources\shaders\pass_tex.frag">
+      <Filter>Resource Files\shaders\util\pass</Filter>
+    </None>
+    <None Include="resources\shaders\flip_tex.frag">
+      <Filter>Resource Files\shaders\util\text</Filter>
+    </None>
+    <None Include="resources\shaders\flip_tex.vect">
+      <Filter>Resource Files\shaders\util\text</Filter>
+    </None>
+    <None Include="resources\shaders\model_sh.frag">
+      <Filter>Resource Files\shaders\scene\model</Filter>
+    </None>
+    <None Include="resources\shaders\model_sh.vect">
+      <Filter>Resource Files\shaders\scene\model</Filter>
+    </None>
+    <None Include="resources\shaders\point.vect">
+      <Filter>Resource Files\shaders\scene\points</Filter>
+    </None>
+    <None Include="resources\shaders\point.frag">
+      <Filter>Resource Files\shaders\scene\points</Filter>
+    </None>
+    <None Include="resources\shaders\allpoints.frag">
+      <Filter>Resource Files\shaders\scene\points</Filter>
+    </None>
+    <None Include="resources\shaders\allpoints.geom">
+      <Filter>Resource Files\shaders\scene\points</Filter>
+    </None>
+    <None Include="resources\shaders\allpoints.vect">
+      <Filter>Resource Files\shaders\scene\points</Filter>
+    </None>
+    <None Include="resources\shaders\pass_col_3d.frag">
+      <Filter>Resource Files\shaders\util\pass\3D</Filter>
+    </None>
+    <None Include="resources\shaders\pass_col_3d.vect">
+      <Filter>Resource Files\shaders\util\pass\3D</Filter>
+    </None>
+    <None Include="resources\shaders\pass_tex_3d.frag">
+      <Filter>Resource Files\shaders\util\pass\3D</Filter>
+    </None>
+    <None Include="resources\shaders\pass_tex_3d.vect">
+      <Filter>Resource Files\shaders\util\pass\3D</Filter>
+    </None>
+    <None Include="resources\shaders\lshader_col.frag">
+      <Filter>Resource Files\shaders\light</Filter>
+    </None>
+    <None Include="resources\shaders\lshader_col.vect">
+      <Filter>Resource Files\shaders\light</Filter>
+    </None>
+    <None Include="resources\shaders\triangle_col.frag">
+      <Filter>Resource Files\shaders\scene\model</Filter>
+    </None>
+    <None Include="resources\shaders\triangle_col.vect">
+      <Filter>Resource Files\shaders\scene\model</Filter>
+    </None>
+    <None Include="resources\shaders\vert_col.frag">
+      <Filter>Resource Files\shaders\scene\model</Filter>
+    </None>
+    <None Include="resources\shaders\vert_col.vect">
+      <Filter>Resource Files\shaders\scene\model</Filter>
+    </None>
+    <None Include="resources\shaders\sprite.vect">
+      <Filter>Resource Files\shaders\util\rest\notnow</Filter>
+    </None>
+    <None Include="resources\shaders\sprite.frag">
+      <Filter>Resource Files\shaders\util\rest\notnow</Filter>
+    </None>
+    <None Include="resources\shaders\particle.vect">
+      <Filter>Resource Files\shaders\util\rest\notnow</Filter>
+    </None>
+    <None Include="resources\shaders\particle.frag">
+      <Filter>Resource Files\shaders\util\rest\notnow</Filter>
+    </None>
+    <None Include="resources\shaders\picking.frag">
+      <Filter>Resource Files\shaders\picking</Filter>
+    </None>
+    <None Include="resources\shaders\picking.vect">
+      <Filter>Resource Files\shaders\picking</Filter>
+    </None>
+    <None Include="resources\shaders\picking_3d.frag">
+      <Filter>Resource Files\shaders\picking</Filter>
+    </None>
+    <None Include="resources\shaders\picking_3d.vect">
+      <Filter>Resource Files\shaders\picking</Filter>
+    </None>
+    <None Include="resources\shaders\picking_3d_triang.frag">
+      <Filter>Resource Files\shaders\picking</Filter>
+    </None>
+    <None Include="resources\shaders\picking_3d_triang.vect">
+      <Filter>Resource Files\shaders\picking</Filter>
+    </None>
+    <None Include="resources\shaders\triangle_tex.frag">
+      <Filter>Resource Files\shaders\scene\model</Filter>
+    </None>
+    <None Include="resources\shaders\triangle_tex.vect">
+      <Filter>Resource Files\shaders\scene\model</Filter>
+    </None>
+    <None Include="resources\shaders\draw_grid.frag">
+      <Filter>Resource Files\shaders\scene\grids</Filter>
+    </None>
+    <None Include="resources\shaders\draw_grid.vect">
+      <Filter>Resource Files\shaders\scene\grids</Filter>
+    </None>
+    <None Include="resources\shaders\infinite_grid.vect">
+      <Filter>Resource Files\shaders\scene\grids</Filter>
+    </None>
+    <None Include="resources\shaders\infinite_grid.frag">
+      <Filter>Resource Files\shaders\scene\grids</Filter>
+    </None>
+    <None Include="resources\shaders\pass_tex_noselect.frag">
+      <Filter>Resource Files\shaders\util\pass</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="all.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="window.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="framebuf.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resource_manager.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="model.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="shader_old.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="text_renderer.h">
+      <Filter>Source Files\ostalo</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>Source Files\ostalo</Filter>
+    </ClInclude>
+    <ClInclude Include="shader.h">
+      <Filter>Source Files\ostalo</Filter>
+    </ClInclude>
+    <ClInclude Include="texture.h">
+      <Filter>Source Files\ostalo</Filter>
+    </ClInclude>
+    <ClInclude Include="utils.h">
+      <Filter>Source Files\ostalo</Filter>
+    </ClInclude>
+    <ClInclude Include="dispatcher.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="my_events.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="control.h">
+      <Filter>Source Files\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="binding_manager.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Debug.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components.h">
+      <Filter>Source Files\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="scene.h">
+      <Filter>Source Files\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image_write.h">
+      <Filter>Source Files\ostalo</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="program.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="window.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="framebuf.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="resource_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="text_renderer.cpp">
+      <Filter>Source Files\ostalo</Filter>
+    </ClCompile>
+    <ClCompile Include="stb_image.cpp">
+      <Filter>Source Files\ostalo</Filter>
+    </ClCompile>
+    <ClCompile Include="shader.cpp">
+      <Filter>Source Files\ostalo</Filter>
+    </ClCompile>
+    <ClCompile Include="texture.cpp">
+      <Filter>Source Files\ostalo</Filter>
+    </ClCompile>
+    <ClCompile Include="utils.cpp">
+      <Filter>Source Files\ostalo</Filter>
+    </ClCompile>
+    <ClCompile Include="dispatcher.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="my_events.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="control.cpp">
+      <Filter>Source Files\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="binding_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components.cpp">
+      <Filter>Source Files\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="scene.cpp">
+      <Filter>Source Files\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="stb_image_write.cpp">
+      <Filter>Source Files\ostalo</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="customdbginfo.natvis" />
+  </ItemGroup>
+</Project>

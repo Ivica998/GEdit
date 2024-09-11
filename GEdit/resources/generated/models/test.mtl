@@ -1,0 +1,11 @@
+newmtl mat0
+Ka 1 1 1
+Kd 1 1 1
+Ks 0 0 0
+Ns 10
+Ni 1
+d 10
+map_Ka bricks2.jpg
+map_Kd bricks2.jpg
+bump bricks2_normal.jpg
+disp bricks2_disp.jpg

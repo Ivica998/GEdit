@@ -1,0 +1,39 @@
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 view;
+uniform mat4 projection;
+
+//out vec3 nearPoint;
+//out vec3 farPoint;
+layout(location = 0) out float near; //0.01
+layout(location = 1) out float far; //100
+layout(location = 2) out vec3 nearPoint;
+layout(location = 3) out vec3 farPoint;
+layout(location = 4) out mat4 fragView;
+layout(location = 8) out mat4 fragProj;
+
+
+vec3 UnprojectPoint(float x, float y, float z, mat4 view, mat4 projection) {
+    mat4 viewInv = inverse(view);
+    mat4 projInv = inverse(projection);
+    vec4 unprojectedPoint =  viewInv * projInv * vec4(x, y, z, 1.0);
+    return unprojectedPoint.xyz / unprojectedPoint.w;
+}
+
+void main() {
+    near = 0.01;
+    far = 100;
+    fragView = view;
+    fragProj = projection;
+    nearPoint = UnprojectPoint(aPos.x, aPos.y, 0.0, view, projection);
+    farPoint = UnprojectPoint(aPos.x, aPos.y, 1.0, view, projection);
+    gl_Position = vec4(aPos, 1.0);
+}
+
+/*
+
+    gl_Position = projection * view * vec4(aPos, 1.0);
+
+*/
+

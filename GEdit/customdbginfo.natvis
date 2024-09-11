@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  
+  <Type Name="MeasureCol2D">
+    <DisplayString ExcludeView="nop,verbose">{{{*Meas.X.total,g},{*Meas.Y.total,g}} {{p{{{*Meas.X.p_total,g},{*Meas.Y.p_total,g}}}}</DisplayString>
+    <DisplayString IncludeView="verbose">{{{Meas.X,g},{Meas.Y,g},saved{saved}}}</DisplayString>
+    <DisplayString IncludeView="nop">{{{*Meas.X.total,g},{*Meas.Y.total,g}}</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="Meas">Meas</Item>
+      <Item Name="saved">saved,view(simple)</Item>
+    </Expand>
+  </Type>
+  <Type Name="MeasureCol">
+    <DisplayString>{{me={*total,g},p={*p_total,g}}</DisplayString>
+    <DisplayString Condition="measures.size() == 0">Empty</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="saved" ExcludeView="simple">saved,view(simple)</Item>
+      <Item Name="[size]" ExcludeView="simple">measures.size()</Item>
+      <CustomListItems>
+        <Variable Name="i" InitialValue="0" />
+        <Size>measures.size()</Size>
+        <Loop>
+          <Item>measures[i]</Item>
+          <Exec>i++</Exec>
+        </Loop>
+      </CustomListItems>
+    </Expand>
+  </Type>
+  <Type Name="glm::vec&lt;4,float,0&gt;">
+  <DisplayString>{{{x,g},{y,g},{z,g},{w,g}}}</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="x">x,g</Item>
+      <Item Name="y">y,g</Item>
+      <Item Name="z">z,g</Item>
+      <Item Name="w">w,g</Item>
+    </Expand>
+</Type>
+  <Type Name="glm::vec&lt;3,float,0&gt;">
+    <DisplayString>{{{x,g},{y,g},{z,g}}}</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="x">x,g</Item>
+      <Item Name="y">y,g</Item>
+      <Item Name="z">z,g</Item>
+    </Expand>
+  </Type>
+  <Type Name="DrawObj2D" IncludeView="original">
+    <DisplayString>{{{Name}}</DisplayString>
+  </Type>
+  <Type Name="DrawObj2D" Inheritable="true" ExcludeView="original">
+    <DisplayString IncludeView="ssimple">{{{Name}}</DisplayString>
+    <DisplayString ExcludeView="raw">{{N{Name},P{*Parent,view(ssimple)},cng={States.Changed},AS{ActualSize},AP{ActualPos},LS{{{*LogicalSize.X,g}}{{{*LogicalSize.Y,g}}},S{Size},P{Pos,view(nop)},{Childs}}</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="Name">Name</Item>
+      <Item Name="this(original)" ExcludeView="original">this,view(original)</Item>
+      <Item Name="Align">(Align_S*)this</Item>
+      <Item Name="ActualPos">ActualPos</Item>
+      <Item Name="ActualSize">ActualSize</Item>
+      <Item Name="GUID">GUID</Item>
+      <Item Name="Childs">Childs,view(simple)</Item>
+      <Item Name="Pos">Pos</Item>
+      <Item Name="Size">Size</Item>
+      <Item Name="m_Bounds">m_Bounds</Item>
+      <Item Name="TexSize">TexSize</Item>
+      <Item Name="Linked">Linked</Item>
+      <Item Name="Changed">States.Changed</Item>
+      <Item Name="Parent">Parent</Item>
+      <Item Name="Visibility">Visibility</Item>
+    </Expand>
+  </Type>
+  <Type Name="StackPanel" Inheritable="true" ExcludeView="original">
+    <DisplayString IncludeView="ssimple">{{{Name}}</DisplayString>
+    <DisplayString ExcludeView="raw">{{STACK,N{Name},P{*Parent,view(ssimple)},cng={States.Changed},AS{ActualSize},AP{ActualPos},LS{{{*LogicalSize.X,g}}{{{*LogicalSize.Y,g}}},S{Size},P{Pos,view(nop)},{Childs}}</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="Name">Name</Item>
+      <Item Name="this(original)" ExcludeView="original">this,view(original)</Item>
+      <Item Name="Align">(Align_S*)this</Item>
+      <Item Name="ActualPos">ActualPos</Item>
+      <Item Name="ActualSize">ActualSize</Item>
+      <Item Name="GUID">GUID</Item>
+      <Item Name="Childs">Childs,view(simple)</Item>
+      <Item Name="Pos">Pos</Item>
+      <Item Name="Size">Size</Item>
+      <Item Name="m_Bounds">m_Bounds</Item>
+      <Item Name="TexSize">TexSize</Item>
+      <Item Name="Linked">Linked</Item>
+      <Item Name="Changed">States.Changed</Item>
+      <Item Name="Parent">Parent</Item>
+      <Item Name="Visibility">Visibility</Item>
+    </Expand>
+  </Type>
+  <Type Name="ViewSpace" Inheritable="true" ExcludeView="original">
+    <DisplayString IncludeView="ssimple">{{{Name}}</DisplayString>
+    <DisplayString ExcludeView="raw">{{N{Name},P{*Parent,view(ssimple)},cng={States.Changed},AS{ActualSize},AP{ActualPos},LS{{{*LogicalSize.X,g}}{{{*LogicalSize.Y,g}}},S{Size},P{Pos,view(nop)},{Childs}}</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="Name">Name</Item>
+      <Item Name="this(original)" ExcludeView="original">this,view(original)</Item>
+      <Item Name="GUID">GUID</Item>
+      <Item Name="Childs">Childs,view(simple)</Item>
+      <Item Name="m_texCords">m_texCords</Item>
+      <Item Name="m_texCords_old">m_texCords_old</Item>
+      <Item Name="SpaceSize">SpaceSize</Item>
+      <Item Name="ActualPos">ActualPos</Item>
+      <Item Name="ActualSize">ActualSize</Item>
+      <Item Name="SPosRel">SPosRel</Item>
+      <Item Name="Pos">Pos</Item>
+      <Item Name="Size">Size</Item>
+      <Item Name="m_Bounds">m_Bounds</Item>
+      <Item Name="TexSize">TexSize</Item>
+      <Item Name="Linked">Linked</Item>
+      <Item Name="Changed">States.Changed</Item>
+      <Item Name="Parent">Parent</Item>
+      <Item Name="Visibility">Visibility</Item>
+    </Expand>
+  </Type>
+  <Type Name="Scrollable" Inheritable="true" ExcludeView="original">
+    <DisplayString IncludeView="ssimple">{{{Name}}</DisplayString>
+    <DisplayString ExcludeView="raw">{{N{Name},P{*Parent,view(ssimple)},cng={States.Changed},AS{ActualSize},AP{ActualPos},LS{{{*LogicalSize.X,g}}{{{*LogicalSize.Y,g}}},S{Size},P{Pos,view(nop)},{Childs}}</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="Name">Name</Item>
+      <Item Name="this(original)" ExcludeView="original">this,view(original)</Item>
+      <Item Name="GUID">GUID</Item>
+      <Item Name="ActualPos">ActualPos</Item>
+      <Item Name="ActualSize">ActualSize</Item>
+      <Item Name="Childs">Childs,view(simple)</Item>
+      <Item Name="VS">VS</Item>
+      <Item Name="Pos">Pos</Item>
+      <Item Name="Size">Size</Item>
+      <Item Name="m_Bounds">m_Bounds</Item>
+      <Item Name="TexSize">TexSize</Item>
+      <Item Name="Linked">Linked</Item>
+      <Item Name="Changed">States.Changed</Item>
+      <Item Name="Parent">Parent</Item>
+      <Item Name="Visibility">Visibility</Item>
+    </Expand>
+  </Type>
+  <!--
+  <Type Name="DrawObj2D" Inheritable="true" ExcludeView="raw">
+    <DisplayString IncludeView="ssimple">{{{Name}}</DisplayString>
+    <DisplayString ExcludeView="raw">{{N{Name},P{*Parent,view(ssimple)},AS{ActualSize},AP{ActualPos},LS{ActualPos},S{Size},P{Pos},{Childs}}</DisplayString>
+    <Expand>
+      <Item Name="this(raw)">this,view(raw)</Item>
+      <Item Name="this(original)">this,view(or)</Item>
+      <Item Name="Childs">Childs</Item>
+      <Item Name="Pos">Pos</Item>
+      <Item Name="Size">Size</Item>
+      <Item Name="m_Bounds">m_Bounds</Item>
+      <Item Name="TexSize">TexSize</Item>
+      <Item Name="Linked">Linked</Item>
+      <Item Name="Changed">States.Changed</Item>
+    </Expand>
+  </Type>
+  <Type Name="llist">
+  <DisplayString>Code ={code,na}</DisplayString>
+  <StringView>code</StringView>
+  <Expand>
+    <LinkedListItems ExcludeView="simple">
+      <HeadPointer>this</HeadPointer>
+      <NextPointer>next</NextPointer>
+      <ValueNode>this,view(simple)</ValueNode>
+    </LinkedListItems>
+  </Expand>
+</Type>
+-->
+  <Type Name="Bounds">
+    <DisplayString>{{{x1,g},{y1,g},{x2,g},{y2,g}}}</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="x1">x1</Item>
+      <Item Name="y1">y1</Item>
+      <Item Name="x2">x2</Item>
+      <Item Name="y2">y2</Item>
+    </Expand>
+  </Type>
+  <Type Name="NatFloat">
+    <DisplayString>{{{(int)f}.{(int)f*10%10}{(int)f*100%10}}}</DisplayString>
+  </Type>
+  <Type Name="Point2D&lt;*&gt;">
+    <DisplayString>{{{X,g},{Y,g}}}</DisplayString>
+    <Expand HideRawView="true">
+      <Item Name="X">X,g</Item>
+      <Item Name="Y">Y,g</Item>
+    </Expand>
+  </Type>
+</AutoVisualizer>

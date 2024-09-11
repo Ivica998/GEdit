@@ -1,0 +1,20 @@
+﻿  binding_manager.cpp
+  components.cpp
+  control.cpp
+  Debug.cpp
+  dispatcher.cpp
+  framebuf.cpp
+  my_events.cpp
+  program.cpp
+  resource_manager.cpp
+  scene.cpp
+  shader.cpp
+  stb_image_write.cpp
+  stb_image.cpp
+  texture.cpp
+  text_renderer.cpp
+  utils.cpp
+  window.cpp
+  Generating Code...
+  glad.c
+  GEdit.vcxproj -> C:\Users\Ivica\Desktop\Rad\OpenGL\MyWork\GEdit11\x64\Debug\GEdit.exe

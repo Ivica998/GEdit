@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <OpenGLLib>C:\Users\Ivica\Desktop\Rad\OpenGL\MyWork\lib</OpenGLLib>
+    <OpenGLInclude>C:\Users\Ivica\Desktop\Rad\OpenGL\MyWork\include</OpenGLInclude>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemDefinitionGroup />
+  <ItemGroup>
+    <BuildMacro Include="OpenGLLib">
+      <Value>$(OpenGLLib)</Value>
+    </BuildMacro>
+    <BuildMacro Include="OpenGLInclude">
+      <Value>$(OpenGLInclude)</Value>
+    </BuildMacro>
+  </ItemGroup>
+</Project>
